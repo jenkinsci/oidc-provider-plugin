@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<div>
+    Allows Jenkins to act as an OpenID Connect provider and issue identity tokens to builds that can be used for keyless authentication with other services.
+</div>
