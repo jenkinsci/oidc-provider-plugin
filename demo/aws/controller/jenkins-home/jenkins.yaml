@@ -1,0 +1,11 @@
+unclassified:
+  location:
+    url: http://${DEMO_NAME}.127.0.0.1.nip.io/
+credentials:
+  system:
+    domainCredentials:
+    - credentials:
+      - idTokenFile:
+          id: aws-jwt
+          scope: GLOBAL
+          audience: sts.amazonaws.com
