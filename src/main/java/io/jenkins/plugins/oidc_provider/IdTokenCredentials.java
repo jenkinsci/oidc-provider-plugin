@@ -31,6 +31,8 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
 import hudson.Util;
+import hudson.model.Item;
+import hudson.model.ModelObject;
 import hudson.model.Run;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
@@ -182,6 +184,16 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
         public final FormValidation doCheckIssuer(StaplerRequest req, @QueryParameter String id, @QueryParameter String issuer) {
             Issuer i = ExtensionList.lookup(Issuer.Factory.class).stream().map(f -> f.forConfig(req)).filter(Objects::nonNull).findFirst().orElse(null);
+            if (i != null) {
+                ModelObject context = i.context();
+                if (context instanceof Jenkins) {
+                    ((Jenkins) context).checkPermission(Jenkins.ADMINISTER);
+                } else if (context instanceof Item) {
+                    ((Item) context).checkAnyPermission(Item.EXTENDED_READ);
+                } else {
+                    return FormValidation.ok(); // ?
+                }
+            }
             if (Util.fixEmpty(issuer) == null) {
                 if (i != null) {
                     return FormValidation.okWithMarkup("Issuer URI: <code>" + Util.escape(i.url()) + "</code>");
