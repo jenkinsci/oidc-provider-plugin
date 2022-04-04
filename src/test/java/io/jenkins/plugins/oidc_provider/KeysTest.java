@@ -26,6 +26,7 @@ package io.jenkins.plugins.oidc_provider;
 
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import com.gargoylesoftware.htmlunit.Page;
 import java.net.URL;
@@ -48,7 +49,11 @@ public class KeysTest {
     @Test public void globalEndpoint() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
         r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().grant(Jenkins.ADMINISTER).everywhere().toAuthenticated());
-        CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null));
+        CredentialsStore store = CredentialsProvider.lookupStores(r.jenkins).iterator().next();
+        store.addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null));
+        IdTokenStringCredentials alt = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "alt", null);
+        alt.setIssuer("https://elsewhere");
+        store.addCredentials(Domain.global(), alt);
         JSONObject config = r.getJSON("oidc/.well-known/openid-configuration").getJSONObject();
         System.err.println(config.toString(2));
         assertEquals(r.getURL() + "oidc", config.getString("issuer"));

@@ -24,6 +24,7 @@
 
 package io.jenkins.plugins.oidc_provider;
 
+import com.cloudbees.hudson.plugins.folder.Folder;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.domains.Domain;
@@ -32,11 +33,14 @@ import java.math.BigInteger;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import jenkins.model.Jenkins;
 import org.junit.Test;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import org.junit.Rule;
+import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.JenkinsSessionRule;
+import org.jvnet.hudson.test.MockAuthorizationStrategy;
 
 public class IdTokenCredentialsTest {
 
@@ -72,6 +76,28 @@ public class IdTokenCredentialsTest {
             assertThat(creds, hasSize(1));
             assertThat(creds.get(0).getIssuer(), is(nullValue()));
             assertThat(creds.get(0).getAudience(), is(nullValue()));
+        });
+    }
+
+    @Test public void checkIssuer() throws Throwable {
+        rr.then(r -> {
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext1", null);
+            c.setIssuer("https://xxx");
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            Folder dir = r.createProject(Folder.class, "dir");
+            c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext2", null);
+            c.setIssuer("https://xxx");
+            CredentialsProvider.lookupStores(dir).iterator().next().addCredentials(Domain.global(), c);
+            r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
+            r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().grant(Jenkins.ADMINISTER).everywhere().toAuthenticated());
+            JenkinsRule.WebClient wc = r.createWebClient();
+            wc.assertFails("descriptorByName/" + IdTokenStringCredentials.class.getName() + "/checkIssuer?id=ext1&issuer=", 403);
+            wc.assertFails("job/dir/descriptorByName/" + IdTokenStringCredentials.class.getName() + "/checkIssuer?id=ext2&issuer=", 403);
+            wc.login("admin");
+            assertThat(wc.goTo("descriptorByName/" + IdTokenStringCredentials.class.getName() + "/checkIssuer?id=ext1&issuer=").getWebResponse().getContentAsString(), containsString("/jenkins/oidc"));
+            assertThat(wc.goTo("job/dir/descriptorByName/" + IdTokenStringCredentials.class.getName() + "/checkIssuer?id=ext2&issuer=").getWebResponse().getContentAsString(), containsString("/jenkins/oidc/job/dir"));
+            assertThat(wc.goTo("descriptorByName/" + IdTokenStringCredentials.class.getName() + "/checkIssuer?id=ext1&issuer=https://xxx").getWebResponse().getContentAsString(), containsString("https://xxx/jwks"));
+            assertThat(wc.goTo("job/dir/descriptorByName/" + IdTokenStringCredentials.class.getName() + "/checkIssuer?id=ext2&issuer=https://xxx").getWebResponse().getContentAsString(), containsString("https://xxx/jwks"));
         });
     }
 
