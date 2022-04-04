@@ -120,7 +120,7 @@ import org.kohsuke.stapler.StaplerRequest;
                         LOGGER.warning(() -> i + " was expected to have URI " + uri);
                         return null;
                     }
-                    if (i.credentials().stream().noneMatch(c -> c.getIssuer() != null)) {
+                    if (i.credentials().stream().noneMatch(c -> c.getIssuer() == null)) {
                         LOGGER.fine(() -> "found " + i + " but has no credentials with default issuer; not advertising existence of a folder");
                         return null;
                     }
