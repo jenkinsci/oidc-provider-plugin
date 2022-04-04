@@ -46,7 +46,8 @@ public class IdTokenCredentialsTest {
         AtomicReference<BigInteger> modulus = new AtomicReference<>();
         rr.then(r -> {
             IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
-            c.setAudience("https://service/");
+            c.setIssuer("https://issuer");
+            c.setAudience("https://audience");
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
             modulus.set(c.publicKey().getModulus());
         });
@@ -54,6 +55,8 @@ public class IdTokenCredentialsTest {
             List<IdTokenStringCredentials> creds = CredentialsProvider.lookupCredentials(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             assertThat(creds, hasSize(1));
             assertThat(creds.get(0).getId(), is("test"));
+            assertThat(creds.get(0).getIssuer(), is("https://issuer"));
+            assertThat(creds.get(0).getAudience(), is("https://audience"));
             assertThat("private key retained by serialization", creds.get(0).publicKey().getModulus(), is(modulus.get()));
             HtmlForm form = r.createWebClient().goTo("credentials/store/system/domain/_/credential/test/update").getFormByName("update");
             form.getInputByName("_.description").setValueAttribute("my creds");
@@ -62,6 +65,13 @@ public class IdTokenCredentialsTest {
             assertThat(creds, hasSize(1));
             assertThat(creds.get(0).getDescription(), is("my creds"));
             assertThat("private key rotated by resaving", creds.get(0).publicKey().getModulus(), is(not(modulus.get())));
+            creds.get(0).setIssuer(null);
+            creds.get(0).setAudience(null);
+            r.submit(r.createWebClient().goTo("credentials/store/system/domain/_/credential/test/update").getFormByName("update"));
+            creds = CredentialsProvider.lookupCredentials(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
+            assertThat(creds, hasSize(1));
+            assertThat(creds.get(0).getIssuer(), is(nullValue()));
+            assertThat(creds.get(0).getAudience(), is(nullValue()));
         });
     }
 

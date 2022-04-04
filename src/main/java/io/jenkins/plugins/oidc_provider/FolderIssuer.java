@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import jenkins.model.Jenkins;
+import org.kohsuke.stapler.StaplerRequest;
 
 /**
  * Issuer scoped to a folder with credentials defined (directly) there.
@@ -77,6 +78,11 @@ public final class FolderIssuer extends Issuer {
                 issuers.add(new FolderIssuer(folder));
             }
             return issuers;
+        }
+
+        @Override public Issuer forConfig(StaplerRequest req) {
+            ItemGroup<?> folder = req.findAncestorObject(ItemGroup.class);
+            return folder instanceof Item ? new FolderIssuer(folder) : null;
         }
 
     }
