@@ -182,11 +182,16 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
     protected static abstract class IdTokenCredentialsDescriptor extends BaseStandardCredentialsDescriptor {
 
-        public final FormValidation doCheckIssuer(StaplerRequest req, @QueryParameter String id, @QueryParameter String issuer) {
+        private static @CheckForNull Issuer issuerFromRequest(@NonNull StaplerRequest req) {
             Issuer i = ExtensionList.lookup(Issuer.Factory.class).stream().map(f -> f.forConfig(req)).filter(Objects::nonNull).findFirst().orElse(null);
             if (i != null) {
                 i.checkExtendedReadPermission();
             }
+            return i;
+        }
+
+        public final FormValidation doCheckIssuer(StaplerRequest req, @QueryParameter String id, @QueryParameter String issuer) {
+            Issuer i = issuerFromRequest(req);
             if (Util.fixEmpty(issuer) == null) {
                 if (i != null) {
                     return FormValidation.okWithMarkup("Issuer URI: <code>" + Util.escape(i.url()) + "</code>");
@@ -214,13 +219,13 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                 if (i != null) {
                     IdTokenCredentials c = i.credentials().stream().filter(creds -> creds.getId().equals(id) && issuer.equals(creds.getIssuer())).findFirst().orElse(null);
                     if (c != null) {
-                        String base = req.getContextPath() + "/" + getDescriptorUrl();
+                        String base = req.getRequestURI().replaceFirst("/checkIssuer$", "");
                         return FormValidation.okWithMarkup(
                             "Serve <code>" + Util.xmlEscape(issuer) + Keys.WELL_KNOWN_OPENID_CONFIGURATION +
                             "</code> with <a href=\"" + base + "/wellKnownOpenidConfiguration?issuer=" + Util.escape(issuer) +
                             "\" target=\"_blank\" rel=\"noopener noreferrer\">this content</a> and <code>" +
                             Util.xmlEscape(issuer) + Keys.JWKS + "</code> with <a href=\"" +
-                            base + "/jwks?uri=" + Util.escape(i.uri()) + "&id=" + Util.escape(id) + "&issuer=" + Util.escape(issuer) +
+                            base + "/jwks?id=" + Util.escape(id) + "&issuer=" + Util.escape(issuer) +
                             "\" target=\"_blank\" rel=\"noopener noreferrer\">this content</a> (both as <code>application/json</code>)." +
                             "<br>Note that the JWKS document will need to be updated if you resave these credentials.");
                     } else {
@@ -236,12 +241,11 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             return Keys.openidConfiguration(issuer);
         }
 
-        public JSONObject doJwks(@QueryParameter String uri, @QueryParameter String id, @QueryParameter String issuer) {
-            Issuer i = ExtensionList.lookup(Issuer.Factory.class).stream().map(f -> f.forUri(uri)).filter(Objects::nonNull).findFirst().orElse(null);
+        public JSONObject doJwks(StaplerRequest req, @QueryParameter String id, @QueryParameter String issuer) {
+            Issuer i = issuerFromRequest(req);
             if (i == null) {
                 throw HttpResponses.notFound();
             }
-            i.checkExtendedReadPermission();
             IdTokenCredentials c = i.credentials().stream().filter(creds -> creds.getId().equals(id) && issuer.equals(creds.getIssuer())).findFirst().orElse(null);
             if (c == null) {
                 throw HttpResponses.notFound();

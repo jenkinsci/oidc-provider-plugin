@@ -94,21 +94,26 @@ public class IdTokenCredentialsTest {
             r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().grant(Jenkins.ADMINISTER).everywhere().toAuthenticated());
             JenkinsRule.WebClient wc = r.createWebClient();
             String descriptorUrl = "descriptorByName/" + IdTokenStringCredentials.class.getName() + "/";
+            String folderDescriptorUrl = "job/dir/" + descriptorUrl;
             wc.assertFails(descriptorUrl + "checkIssuer?id=ext1&issuer=", 403);
-            wc.assertFails("job/dir/" + descriptorUrl + "checkIssuer?id=ext2&issuer=", 403);
-            wc.assertFails(descriptorUrl + "jwks?uri=&id=ext1&issuer=", 403);
+            wc.assertFails(folderDescriptorUrl + "checkIssuer?id=ext2&issuer=", 403);
+            wc.assertFails(descriptorUrl + "jwks?id=ext1&issuer=", 403);
+            wc.assertFails(folderDescriptorUrl + "jwks?id=ext2&issuer=", 403);
             wc.login("admin");
             assertThat(wc.goTo(descriptorUrl + "checkIssuer?id=ext1&issuer=").getWebResponse().getContentAsString(), containsString("/jenkins/oidc"));
-            assertThat(wc.goTo("job/dir/" + descriptorUrl + "checkIssuer?id=ext2&issuer=").getWebResponse().getContentAsString(), containsString("/jenkins/oidc/job/dir"));
+            assertThat(wc.goTo(folderDescriptorUrl + "checkIssuer?id=ext2&issuer=").getWebResponse().getContentAsString(), containsString("/jenkins/oidc/job/dir"));
             assertThat(wc.goTo(descriptorUrl + "checkIssuer?id=ext1&issuer=https://xxx").getWebResponse().getContentAsString(), containsString("https://xxx/jwks"));
-            HtmlPage message = wc.goTo("job/dir/" + descriptorUrl + "checkIssuer?id=ext2&issuer=https://xxx");
-            assertThat(message.getWebResponse().getContentAsString(), containsString("https://xxx/jwks"));
+            HtmlPage message = wc.goTo(folderDescriptorUrl + "checkIssuer?id=ext2&issuer=https://xxx");
+            String messageText = message.getWebResponse().getContentAsString();
+            System.out.println(messageText);
+            assertThat(messageText, containsString("https://xxx/jwks"));
             for (HtmlAnchor anchor : message.getAnchors()) {
                 wc.getPage(message.getFullyQualifiedUrl(anchor.getHrefAttribute()));
             }
             assertThat(wc.goTo(descriptorUrl + "wellKnownOpenidConfiguration?issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"jwks_uri\":\"https://xxx/jwks\""));
-            assertThat(wc.goTo(descriptorUrl + "jwks?uri=&id=ext1&issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"kid\":\"ext1\""));
-            assertThat(wc.goTo(descriptorUrl + "jwks?uri=/job/dir&id=ext2&issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"kid\":\"ext2\""));
+            assertThat(wc.goTo(folderDescriptorUrl + "wellKnownOpenidConfiguration?issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"jwks_uri\":\"https://xxx/jwks\""));
+            assertThat(wc.goTo(descriptorUrl + "jwks?id=ext1&issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"kid\":\"ext1\""));
+            assertThat(wc.goTo(folderDescriptorUrl + "jwks?id=ext2&issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"kid\":\"ext2\""));
         });
     }
 
