@@ -1,0 +1,30 @@
+<flow-definition>
+		<definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition">
+				<script><![CDATA[pipeline {
+  environment {
+    AWS_WEB_IDENTITY_TOKEN_FILE = credentials('aws-jwt')
+  }
+  agent any
+  stages {
+    stage('Diagnostics') {
+      steps {
+        sh '''
+          sed 's/[.]/../g' < $AWS_WEB_IDENTITY_TOKEN_FILE
+          step crypto jwt inspect --insecure < $AWS_WEB_IDENTITY_TOKEN_FILE
+          aws sts get-caller-identity
+        '''
+      }
+    }
+    stage('Work') {
+      steps {
+        sh '''
+          date | aws s3 cp - s3://$DEMO_NAME/$BUILD_TAG.txt
+          aws s3 ls s3://$DEMO_NAME
+        '''
+      }
+    }
+  }
+}]]></script>
+				<sandbox>true</sandbox>
+		</definition>
+</flow-definition>

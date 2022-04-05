@@ -1,0 +1,12 @@
+unclassified:
+  location:
+    url: http://${DEMO_NAME}.127.0.0.1.nip.io/
+credentials:
+  system:
+    domainCredentials:
+    - credentials:
+      - idTokenFile:
+          id: aws-jwt
+          scope: GLOBAL
+          issuer: https://storage.googleapis.com/${DEMO_NAME}
+          audience: sts.amazonaws.com
