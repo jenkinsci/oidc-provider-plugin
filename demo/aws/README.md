@@ -1,11 +1,10 @@
-Allows Jenkins running locally to authenticate to AWS and access an S3 bucket.
-A GCS bucket is used as the identity provider.
+Allows Jenkins running in GKE to authenticate to AWS and access an S3 bucket.
 
 Tools required beyond typical Linux commands:
-* `mvn` (thus also `java`)
-* `docker`
+* `helm`
+* `kubectl`
 * `aws` (preconfigured with an account to which you have reasonable access)
-* `gsutil` (comes with `gcloud`) (ditto)
+* `gcloud` (ditto)
 * `jq`
 * `openssl`
 
