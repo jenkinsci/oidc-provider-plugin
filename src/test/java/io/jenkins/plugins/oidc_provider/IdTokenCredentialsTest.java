@@ -28,7 +28,9 @@ import com.cloudbees.hudson.plugins.folder.Folder;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.domains.Domain;
+import com.gargoylesoftware.htmlunit.html.HtmlAnchor;
 import com.gargoylesoftware.htmlunit.html.HtmlForm;
+import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.List;
@@ -91,13 +93,22 @@ public class IdTokenCredentialsTest {
             r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
             r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().grant(Jenkins.ADMINISTER).everywhere().toAuthenticated());
             JenkinsRule.WebClient wc = r.createWebClient();
-            wc.assertFails("descriptorByName/" + IdTokenStringCredentials.class.getName() + "/checkIssuer?id=ext1&issuer=", 403);
-            wc.assertFails("job/dir/descriptorByName/" + IdTokenStringCredentials.class.getName() + "/checkIssuer?id=ext2&issuer=", 403);
+            String descriptorUrl = "descriptorByName/" + IdTokenStringCredentials.class.getName() + "/";
+            wc.assertFails(descriptorUrl + "checkIssuer?id=ext1&issuer=", 403);
+            wc.assertFails("job/dir/" + descriptorUrl + "checkIssuer?id=ext2&issuer=", 403);
+            wc.assertFails(descriptorUrl + "jwks?uri=&id=ext1&issuer=", 403);
             wc.login("admin");
-            assertThat(wc.goTo("descriptorByName/" + IdTokenStringCredentials.class.getName() + "/checkIssuer?id=ext1&issuer=").getWebResponse().getContentAsString(), containsString("/jenkins/oidc"));
-            assertThat(wc.goTo("job/dir/descriptorByName/" + IdTokenStringCredentials.class.getName() + "/checkIssuer?id=ext2&issuer=").getWebResponse().getContentAsString(), containsString("/jenkins/oidc/job/dir"));
-            assertThat(wc.goTo("descriptorByName/" + IdTokenStringCredentials.class.getName() + "/checkIssuer?id=ext1&issuer=https://xxx").getWebResponse().getContentAsString(), containsString("https://xxx/jwks"));
-            assertThat(wc.goTo("job/dir/descriptorByName/" + IdTokenStringCredentials.class.getName() + "/checkIssuer?id=ext2&issuer=https://xxx").getWebResponse().getContentAsString(), containsString("https://xxx/jwks"));
+            assertThat(wc.goTo(descriptorUrl + "checkIssuer?id=ext1&issuer=").getWebResponse().getContentAsString(), containsString("/jenkins/oidc"));
+            assertThat(wc.goTo("job/dir/" + descriptorUrl + "checkIssuer?id=ext2&issuer=").getWebResponse().getContentAsString(), containsString("/jenkins/oidc/job/dir"));
+            assertThat(wc.goTo(descriptorUrl + "checkIssuer?id=ext1&issuer=https://xxx").getWebResponse().getContentAsString(), containsString("https://xxx/jwks"));
+            HtmlPage message = wc.goTo("job/dir/" + descriptorUrl + "checkIssuer?id=ext2&issuer=https://xxx");
+            assertThat(message.getWebResponse().getContentAsString(), containsString("https://xxx/jwks"));
+            for (HtmlAnchor anchor : message.getAnchors()) {
+                wc.getPage(message.getFullyQualifiedUrl(anchor.getHrefAttribute()));
+            }
+            assertThat(wc.goTo(descriptorUrl + "wellKnownOpenidConfiguration?issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"jwks_uri\":\"https://xxx/jwks\""));
+            assertThat(wc.goTo(descriptorUrl + "jwks?uri=&id=ext1&issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"kid\":\"ext1\""));
+            assertThat(wc.goTo(descriptorUrl + "jwks?uri=/job/dir&id=ext2&issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"kid\":\"ext2\""));
         });
     }
 

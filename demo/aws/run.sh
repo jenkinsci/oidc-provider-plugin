@@ -3,13 +3,12 @@ set -euxo pipefail
 cd $(dirname "$0")
 
 name=oidc-demo-aws-$USER-$RANDOM
-echo "To undo everything created by this script: bash /tmp/cleanup-$name.sh"
 echo set -euxo pipefail >/tmp/cleanup-$name.sh
+trap "echo '====>' To clean up: bash /tmp/cleanup-$name.sh" EXIT
+iss=https://storage.googleapis.com/$name
+jenkins=http://$name.127.0.0.1.nip.io
 
-if [ \! -f ../../target/oidc-provider.hpi -o \! -f ../../target/test-classes/test-dependencies/index ]
-then
-	mvn -f ../.. -Pquick-build clean install
-fi
+mvn -f ../.. -Pquick-build clean install
 rm -rf controller/jenkins-home/plugins
 mkdir controller/jenkins-home/plugins
 cp ../../target/oidc-provider.hpi ../../target/test-classes/test-dependencies/*.hpi controller/jenkins-home/plugins
@@ -24,7 +23,7 @@ aws s3api create-bucket --bucket $name
 echo "aws s3 rb --force s3://$name" >>/tmp/cleanup-$name.sh
 
 provider_arn=$(aws iam create-open-id-connect-provider \
-	--url https://storage.googleapis.com/$name \
+	--url $iss \
 	--client-id-list sts.amazonaws.com \
 	--thumbprint-list $(echo Q | openssl s_client -servername storage.googleapis.com -showcerts -connect storage.googleapis.com:443 2>&- | openssl x509 -fingerprint -noout | cut -d= -f2 | tr -d :) \
 	| jq -r .OpenIDConnectProviderArn)
@@ -41,7 +40,7 @@ cat >/tmp/trust-policy.json <<JSON
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "StringEquals": {
-        "https://storage.googleapis.com/$name:sub": "http://$name.127.0.0.1.nip.io/job/use-oidc/"
+        "$iss:sub": "$jenkins/job/use-oidc/"
       }
     }
   }
@@ -70,11 +69,13 @@ aws iam put-role-policy --role-name $name --policy-name permissions --policy-doc
 container=$(docker run -d --name $name -p 127.0.0.1:80:8080 -e DEMO_NAME=$name -e AWS_ROLE_ARN=$(aws iam get-role --role-name=$name --output text --query Role.Arn) $name)
 echo "docker stop $container && docker rm $container" >>/tmp/cleanup-$name.sh
 
-echo '{"TODO":true}' | gsutil cp - gs://$name/.well-known/openid-configuration
-echo '{"TODO":true}' | gsutil cp - gs://$name/jwks
+until curl -sf $jenkins/login
+do
+	sleep 3
+done
+base=$jenkins/descriptorByName/io.jenkins.plugins.oidc_provider.IdTokenFileCredentials
+curl -s "$base/wellKnownOpenidConfiguration?issuer=$iss" | gsutil cp - gs://$name/.well-known/openid-configuration
+curl -s "$base/jwks?uri=&id=aws-jwt&issuer=$iss" | gsutil cp - gs://$name/jwks
 gsutil setmeta -h Content-Type:application/json gs://$name/.well-known/openid-configuration gs://$name/jwks
 
-cat <<INSTRUCTIONS
-Now try running http://$name.127.0.0.1.nip.io/job/use-oidc/
-When done: bash /tmp/cleanup-$name.sh
-INSTRUCTIONS
+echo "Now try running $jenkins/job/use-oidc/"

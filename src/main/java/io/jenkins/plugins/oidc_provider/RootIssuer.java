@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.Collections;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.StaplerRequest;
+import org.springframework.security.access.AccessDeniedException;
 
 /**
  * Issuer scoped to Jenkins root with global credentials.
@@ -48,6 +49,10 @@ import org.kohsuke.stapler.StaplerRequest;
 
     @Override protected String uri() {
         return "";
+    }
+
+    @Override protected void checkExtendedReadPermission() throws AccessDeniedException {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
     }
 
     @Override public Collection<? extends Issuer> forContext(Run<?, ?> context) {

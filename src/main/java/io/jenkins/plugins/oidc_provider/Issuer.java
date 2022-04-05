@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.StaplerRequest;
+import org.springframework.security.access.AccessDeniedException;
 
 /**
  * Representation of an issuer of tokens.
@@ -85,6 +86,8 @@ public abstract class Issuer {
     public final String url() {
         return Jenkins.get().getRootUrl() + Keys.URL_NAME + uri();
     }
+
+    protected abstract void checkExtendedReadPermission() throws AccessDeniedException;
 
     @Override public String toString() {
         return getClass().getSimpleName() + "[" + url() + "]";

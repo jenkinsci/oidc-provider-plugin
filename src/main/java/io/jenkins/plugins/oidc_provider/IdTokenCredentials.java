@@ -31,8 +31,6 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
 import hudson.Util;
-import hudson.model.Item;
-import hudson.model.ModelObject;
 import hudson.model.Run;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
@@ -53,7 +51,9 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.Objects;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
@@ -185,14 +185,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
         public final FormValidation doCheckIssuer(StaplerRequest req, @QueryParameter String id, @QueryParameter String issuer) {
             Issuer i = ExtensionList.lookup(Issuer.Factory.class).stream().map(f -> f.forConfig(req)).filter(Objects::nonNull).findFirst().orElse(null);
             if (i != null) {
-                ModelObject context = i.context();
-                if (context instanceof Jenkins) {
-                    ((Jenkins) context).checkPermission(Jenkins.ADMINISTER);
-                } else if (context instanceof Item) {
-                    ((Item) context).checkAnyPermission(Item.EXTENDED_READ);
-                } else {
-                    return FormValidation.ok(); // ?
-                }
+                i.checkExtendedReadPermission();
             }
             if (Util.fixEmpty(issuer) == null) {
                 if (i != null) {
@@ -221,14 +214,15 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                 if (i != null) {
                     IdTokenCredentials c = i.credentials().stream().filter(creds -> creds.getId().equals(id) && issuer.equals(creds.getIssuer())).findFirst().orElse(null);
                     if (c != null) {
-                        StringBuilder b = new StringBuilder();
-                        // TODO auto resize textarea, e.g. https://stackoverflow.com/a/57292799/12916
-                        b.append("Serve <code>").append(Util.xmlEscape(issuer)).append(Keys.WELL_KNOWN_OPENID_CONFIGURATION).append("</code> as <code>application/json</code>:<br><textarea readonly style='width: 100%; height: 13rem'>");
-                        b.append(Util.xmlEscape(Keys.openidConfiguration(issuer).toString(2)));
-                        b.append("</textarea><br>and <code>").append(Util.xmlEscape(issuer)).append(Keys.JWKS).append("</code> as <code>application/json</code>:<br><textarea readonly style='width: 100%; height: 16rem'>");
-                        b.append(Util.xmlEscape(Keys.key(c).toString(2)));
-                        b.append("</textarea><br>Note that the JWKS document will need to be updated if you resave these credentials.");
-                        return FormValidation.okWithMarkup(b.toString());
+                        String base = req.getContextPath() + "/" + getDescriptorUrl();
+                        return FormValidation.okWithMarkup(
+                            "Serve <code>" + Util.xmlEscape(issuer) + Keys.WELL_KNOWN_OPENID_CONFIGURATION +
+                            "</code> with <a href=\"" + base + "/wellKnownOpenidConfiguration?issuer=" + Util.escape(issuer) +
+                            "\" target=\"_blank\" rel=\"noopener noreferrer\">this content</a> and <code>" +
+                            Util.xmlEscape(issuer) + Keys.JWKS + "</code> with <a href=\"" +
+                            base + "/jwks?uri=" + Util.escape(i.uri()) + "&id=" + Util.escape(id) + "&issuer=" + Util.escape(issuer) +
+                            "\" target=\"_blank\" rel=\"noopener noreferrer\">this content</a> (both as <code>application/json</code>)." +
+                            "<br>Note that the JWKS document will need to be updated if you resave these credentials.");
                     } else {
                         return FormValidation.ok("Save these credentials, then return to this screen for instructions");
                     }
@@ -236,6 +230,23 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                     return FormValidation.warning("Unable to determine where these credentials are being saved");
                 }
             }
+        }
+
+        public JSONObject doWellKnownOpenidConfiguration(@QueryParameter String issuer) {
+            return Keys.openidConfiguration(issuer);
+        }
+
+        public JSONObject doJwks(@QueryParameter String uri, @QueryParameter String id, @QueryParameter String issuer) {
+            Issuer i = ExtensionList.lookup(Issuer.Factory.class).stream().map(f -> f.forUri(uri)).filter(Objects::nonNull).findFirst().orElse(null);
+            if (i == null) {
+                throw HttpResponses.notFound();
+            }
+            i.checkExtendedReadPermission();
+            IdTokenCredentials c = i.credentials().stream().filter(creds -> creds.getId().equals(id) && issuer.equals(creds.getIssuer())).findFirst().orElse(null);
+            if (c == null) {
+                throw HttpResponses.notFound();
+            }
+            return Keys.key(c);
         }
 
     }
