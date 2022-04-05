@@ -34,6 +34,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import jenkins.model.Jenkins;
+import org.kohsuke.stapler.StaplerRequest;
+import org.springframework.security.access.AccessDeniedException;
 
 /**
  * Issuer scoped to a folder with credentials defined (directly) there.
@@ -59,6 +61,10 @@ public final class FolderIssuer extends Issuer {
         return "/job/" + folder.getFullName().replace("/", "/job/");
     }
 
+    @Override protected void checkExtendedReadPermission() throws AccessDeniedException {
+        ((Item) folder).checkPermission(Item.READ);
+    }
+
     @Extension public static final class Factory implements Issuer.Factory {
 
         @Override public Issuer forUri(String uri) {
@@ -77,6 +83,11 @@ public final class FolderIssuer extends Issuer {
                 issuers.add(new FolderIssuer(folder));
             }
             return issuers;
+        }
+
+        @Override public Issuer forConfig(StaplerRequest req) {
+            ItemGroup<?> folder = req.findAncestorObject(ItemGroup.class);
+            return folder instanceof Item ? new FolderIssuer(folder) : null;
         }
 
     }

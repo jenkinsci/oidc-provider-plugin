@@ -39,6 +39,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import jenkins.model.Jenkins;
+import org.kohsuke.stapler.StaplerRequest;
+import org.springframework.security.access.AccessDeniedException;
 
 /**
  * Representation of an issuer of tokens.
@@ -85,6 +87,11 @@ public abstract class Issuer {
         return Jenkins.get().getRootUrl() + Keys.URL_NAME + uri();
     }
 
+    /**
+     * Check permision on the {@link #context} to enumerate credentials and get their metadata.
+     */
+    protected abstract void checkExtendedReadPermission() throws AccessDeniedException;
+
     @Override public String toString() {
         return getClass().getSimpleName() + "[" + url() + "]";
     }
@@ -104,6 +111,14 @@ public abstract class Issuer {
          * @return issuers handled by this factory which might apply to this build, most specific first (possibly empty)
          */
         @NonNull Collection<? extends Issuer> forContext(@NonNull Run<?, ?> context);
+
+        /**
+         * Find an issuer potentially being configured from a certain screen.
+         * @param req form validation request in a credentials configuration screen
+         * @return a potential issuer for that location, if valid
+         * @see StaplerRequest#findAncestorObject
+         */
+        @CheckForNull Issuer forConfig(@NonNull StaplerRequest req);
 
     }
 

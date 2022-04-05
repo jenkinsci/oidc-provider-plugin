@@ -32,9 +32,12 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
 import hudson.Util;
 import hudson.model.Run;
+import hudson.util.FormValidation;
 import hudson.util.Secret;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -46,8 +49,14 @@ import java.security.spec.RSAPublicKeySpec;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Objects;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.HttpResponses;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest;
 
 public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
@@ -64,6 +73,8 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
      * The public key is inferred from this to reload {@link #kp}.
      */
     private final Secret privateKey;
+
+    private @CheckForNull String issuer;
 
     private @CheckForNull String audience;
 
@@ -106,6 +117,14 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
         return this;
     }
 
+    public final String getIssuer() {
+        return issuer;
+    }
+
+    @DataBoundSetter public final void setIssuer(String issuer) {
+        this.issuer = Util.fixEmpty(issuer);
+    }
+
     public final String getAudience() {
         return audience;
     }
@@ -118,6 +137,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
     @Override public final Credentials forRun(Run<?, ?> context) {
         IdTokenCredentials clone = clone(kp, privateKey);
+        clone.issuer = issuer;
         clone.audience = audience;
         clone.build = context;
         return clone;
@@ -130,7 +150,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
     protected final @NonNull String token() {
         JwtBuilder builder = Jwts.builder().
             setHeaderParam("kid", getId()).
-            setIssuer(findIssuer().url()).
+            setIssuer(issuer != null ? issuer : findIssuer().url()).
             setAudience(audience).
             setExpiration(Date.from(new Date().toInstant().plus(1, ChronoUnit.HOURS))).
             setIssuedAt(new Date());
@@ -159,6 +179,81 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             }
         }
         throw new IllegalStateException("Could not find issuer corresponding to " + getId() + " for " + context.getExternalizableId());
+    }
+
+    protected static abstract class IdTokenCredentialsDescriptor extends BaseStandardCredentialsDescriptor {
+
+        private static @CheckForNull Issuer issuerFromRequest(@NonNull StaplerRequest req) {
+            Issuer i = ExtensionList.lookup(Issuer.Factory.class).stream().map(f -> f.forConfig(req)).filter(Objects::nonNull).findFirst().orElse(null);
+            if (i != null) {
+                i.checkExtendedReadPermission();
+            }
+            return i;
+        }
+
+        public final FormValidation doCheckIssuer(StaplerRequest req, @QueryParameter String id, @QueryParameter String issuer) {
+            Issuer i = issuerFromRequest(req);
+            if (Util.fixEmpty(issuer) == null) {
+                if (i != null) {
+                    return FormValidation.okWithMarkup("Issuer URI: <code>" + Util.escape(i.url()) + "</code>");
+                } else {
+                    return FormValidation.warning("Unable to determine the issuer URI");
+                }
+            } else {
+                try {
+                    URI u = new URI(issuer);
+                    if (!"https".equals(u.getScheme())) {
+                        return FormValidation.errorWithMarkup("Issuer URIs should use <code>https</code> scheme");
+                    }
+                    if (u.getQuery() != null) {
+                        return FormValidation.error("Issuer URIs must not have a query component");
+                    }
+                    if (u.getFragment() != null) {
+                        return FormValidation.error("Issuer URIs must not have a fragment component");
+                    }
+                    if (u.getPath() != null && u.getPath().endsWith("/")) {
+                        return FormValidation.errorWithMarkup("Issuer URIs should not end with a slash (<code>/</code>) in this context");
+                    }
+                } catch (URISyntaxException x) {
+                    return FormValidation.error("Not a well-formed URI");
+                }
+                if (i != null) {
+                    IdTokenCredentials c = i.credentials().stream().filter(creds -> creds.getId().equals(id) && issuer.equals(creds.getIssuer())).findFirst().orElse(null);
+                    if (c != null) {
+                        String base = req.getRequestURI().replaceFirst("/checkIssuer$", "");
+                        return FormValidation.okWithMarkup(
+                            "Serve <code>" + Util.xmlEscape(issuer) + Keys.WELL_KNOWN_OPENID_CONFIGURATION +
+                            "</code> with <a href=\"" + base + "/wellKnownOpenidConfiguration?issuer=" + Util.escape(issuer) +
+                            "\" target=\"_blank\" rel=\"noopener noreferrer\">this content</a> and <code>" +
+                            Util.xmlEscape(issuer) + Keys.JWKS + "</code> with <a href=\"" +
+                            base + "/jwks?id=" + Util.escape(id) + "&issuer=" + Util.escape(issuer) +
+                            "\" target=\"_blank\" rel=\"noopener noreferrer\">this content</a> (both as <code>application/json</code>)." +
+                            "<br>Note that the JWKS document will need to be updated if you resave these credentials.");
+                    } else {
+                        return FormValidation.ok("Save these credentials, then return to this screen for instructions");
+                    }
+                } else {
+                    return FormValidation.warning("Unable to determine where these credentials are being saved");
+                }
+            }
+        }
+
+        public JSONObject doWellKnownOpenidConfiguration(@QueryParameter String issuer) {
+            return Keys.openidConfiguration(issuer);
+        }
+
+        public JSONObject doJwks(StaplerRequest req, @QueryParameter String id, @QueryParameter String issuer) {
+            Issuer i = issuerFromRequest(req);
+            if (i == null) {
+                throw HttpResponses.notFound();
+            }
+            IdTokenCredentials c = i.credentials().stream().filter(creds -> creds.getId().equals(id) && issuer.equals(creds.getIssuer())).findFirst().orElse(null);
+            if (c == null) {
+                throw HttpResponses.notFound();
+            }
+            return new JSONObject().accumulate("keys", new JSONArray().element(Keys.key(c)));
+        }
+
     }
 
 }

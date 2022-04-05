@@ -49,6 +49,8 @@ import org.kohsuke.stapler.StaplerRequest;
     private static final Logger LOGGER = Logger.getLogger(Keys.class.getName());
 
     static final String URL_NAME = "oidc";
+    static final String WELL_KNOWN_OPENID_CONFIGURATION = "/.well-known/openid-configuration";
+    static final String JWKS = "/jwks";
 
     @Override public String getUrlName() {
         return URL_NAME;
@@ -57,39 +59,50 @@ import org.kohsuke.stapler.StaplerRequest;
     public JSONObject doDynamic(StaplerRequest req) {
         String path = req.getRestOfPath();
         try (ACLContext context = ACL.as2(ACL.SYSTEM2)) { // both forUri and credentials might check permissions
-            Issuer i = findIssuer(path, "/.well-known/openid-configuration");
+            Issuer i = findIssuer(path, WELL_KNOWN_OPENID_CONFIGURATION);
             if (i != null) {
-                String issuer = i.url();
-                return new JSONObject().
-                    accumulate("issuer", issuer).
-                    accumulate("jwks_uri", issuer + "/jwks").
-                    accumulate("response_types_supported", new JSONArray().element("code")).
-                    accumulate("subject_types_supported", new JSONArray().element("public")).
-                    accumulate("id_token_signing_alg_values_supported", new JSONArray().element("RS256")).
-                    accumulate("authorization_endpoint", "https://unimplemented/").
-                    accumulate("token_endpoint", "https://unimplemented/");
+                return openidConfiguration(i.url());
             } else {
-                i = findIssuer(path, "/jwks");
+                i = findIssuer(path, JWKS);
                 if (i != null) {
                     // pending https://github.com/jwtk/jjwt/issues/236
                     // compare https://github.com/jenkinsci/blueocean-plugin/blob/1f92e1624287e7588fc89aa5ce4e4147dd00f3d7/blueocean-jwt/src/main/java/io/jenkins/blueocean/auth/jwt/SigningPublicKey.java#L45-L52
-                    Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
                     JSONArray keys = new JSONArray();
                     for (IdTokenCredentials creds : i.credentials()) {
-                        RSAPublicKey key = creds.publicKey();
-                        keys.element(new JSONObject().
-                            accumulate("kid", creds.getId()).
-                            accumulate("kty", "RSA").
-                            accumulate("alg", "RS256").
-                            accumulate("use", "sig").
-                            accumulate("n", encoder.encodeToString(key.getModulus().toByteArray())).
-                            accumulate("e", encoder.encodeToString(key.getPublicExponent().toByteArray())));
+                        if (creds.getIssuer() != null) {
+                            LOGGER.fine(() -> "declining to serve key for " + creds.getId() + " since it would be served from " + creds.getIssuer());
+                            continue;
+                        }
+                        keys.element(key(creds));
                     }
                     return new JSONObject().accumulate("keys", keys);
                 }
             }
             throw HttpResponses.notFound();
         }
+    }
+
+    static JSONObject openidConfiguration(String issuer) {
+        return new JSONObject().
+            accumulate("issuer", issuer).
+            accumulate("jwks_uri", issuer + JWKS).
+            accumulate("response_types_supported", new JSONArray().element("code")).
+            accumulate("subject_types_supported", new JSONArray().element("public")).
+            accumulate("id_token_signing_alg_values_supported", new JSONArray().element("RS256")).
+            accumulate("authorization_endpoint", "https://unimplemented").
+            accumulate("token_endpoint", "https://unimplemented");
+    }
+
+    static JSONObject key(IdTokenCredentials creds) {
+        RSAPublicKey key = creds.publicKey();
+        Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+        return new JSONObject().
+            accumulate("kid", creds.getId()).
+            accumulate("kty", "RSA").
+            accumulate("alg", "RS256").
+            accumulate("use", "sig").
+            accumulate("n", encoder.encodeToString(key.getModulus().toByteArray())).
+            accumulate("e", encoder.encodeToString(key.getPublicExponent().toByteArray()));
     }
 
     /**
@@ -107,8 +120,8 @@ import org.kohsuke.stapler.StaplerRequest;
                         LOGGER.warning(() -> i + " was expected to have URI " + uri);
                         return null;
                     }
-                    if (i.credentials().isEmpty()) {
-                        LOGGER.fine(() -> "found " + i + " but has no credentials; not advertising existence of a folder if this plugin is not even being used");
+                    if (i.credentials().stream().noneMatch(c -> c.getIssuer() == null)) {
+                        LOGGER.fine(() -> "found " + i + " but has no credentials with default issuer; not advertising existence of a folder");
                         return null;
                     }
                     LOGGER.fine(() -> "found " + i);

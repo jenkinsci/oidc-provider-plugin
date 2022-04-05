@@ -56,7 +56,7 @@ public final class IdTokenStringCredentials extends IdTokenCredentials implement
     }
 
     @Symbol("idToken")
-    @Extension public static class DescriptorImpl extends BaseStandardCredentialsDescriptor {
+    @Extension public static class DescriptorImpl extends IdTokenCredentialsDescriptor {
 
         @Override public String getDisplayName() {
             return "OpenID Connect id token";

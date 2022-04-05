@@ -100,4 +100,25 @@ public class IdTokenStringCredentialsTest {
         assertEquals(1, claims.get("build_number", Integer.class).intValue());
     }
 
+    @Test public void alternateIssuer() throws Exception {
+        IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+        c.setIssuer("https://some.issuer");
+        CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'ID_TOKEN', credentialsId: 'test')]) {env.RESULT = ID_TOKEN}", true));
+        WorkflowRun b = r.buildAndAssertSuccess(p);
+        EnvironmentAction env = b.getAction(EnvironmentAction.class);
+        assertNotNull(env);
+        String idToken = env.getEnvironment().get("RESULT");
+        assertNotNull(idToken);
+        Claims claims = Jwts.parserBuilder().
+            setSigningKey(c.publicKey()).
+            build().
+            parseClaimsJws(idToken).
+            getBody();
+        System.out.println(claims);
+        assertEquals("https://some.issuer", claims.getIssuer());
+        assertEquals(p.getAbsoluteUrl(), claims.getSubject());
+    }
+
 }

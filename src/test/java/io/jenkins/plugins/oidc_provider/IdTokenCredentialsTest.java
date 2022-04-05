@@ -24,19 +24,25 @@
 
 package io.jenkins.plugins.oidc_provider;
 
+import com.cloudbees.hudson.plugins.folder.Folder;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.domains.Domain;
+import com.gargoylesoftware.htmlunit.html.HtmlAnchor;
 import com.gargoylesoftware.htmlunit.html.HtmlForm;
+import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import jenkins.model.Jenkins;
 import org.junit.Test;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import org.junit.Rule;
+import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.JenkinsSessionRule;
+import org.jvnet.hudson.test.MockAuthorizationStrategy;
 
 public class IdTokenCredentialsTest {
 
@@ -46,7 +52,8 @@ public class IdTokenCredentialsTest {
         AtomicReference<BigInteger> modulus = new AtomicReference<>();
         rr.then(r -> {
             IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
-            c.setAudience("https://service/");
+            c.setIssuer("https://issuer");
+            c.setAudience("https://audience");
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
             modulus.set(c.publicKey().getModulus());
         });
@@ -54,6 +61,8 @@ public class IdTokenCredentialsTest {
             List<IdTokenStringCredentials> creds = CredentialsProvider.lookupCredentials(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             assertThat(creds, hasSize(1));
             assertThat(creds.get(0).getId(), is("test"));
+            assertThat(creds.get(0).getIssuer(), is("https://issuer"));
+            assertThat(creds.get(0).getAudience(), is("https://audience"));
             assertThat("private key retained by serialization", creds.get(0).publicKey().getModulus(), is(modulus.get()));
             HtmlForm form = r.createWebClient().goTo("credentials/store/system/domain/_/credential/test/update").getFormByName("update");
             form.getInputByName("_.description").setValueAttribute("my creds");
@@ -62,6 +71,49 @@ public class IdTokenCredentialsTest {
             assertThat(creds, hasSize(1));
             assertThat(creds.get(0).getDescription(), is("my creds"));
             assertThat("private key rotated by resaving", creds.get(0).publicKey().getModulus(), is(not(modulus.get())));
+            creds.get(0).setIssuer(null);
+            creds.get(0).setAudience(null);
+            r.submit(r.createWebClient().goTo("credentials/store/system/domain/_/credential/test/update").getFormByName("update"));
+            creds = CredentialsProvider.lookupCredentials(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
+            assertThat(creds, hasSize(1));
+            assertThat(creds.get(0).getIssuer(), is(nullValue()));
+            assertThat(creds.get(0).getAudience(), is(nullValue()));
+        });
+    }
+
+    @Test public void checkIssuer() throws Throwable {
+        rr.then(r -> {
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext1", null);
+            c.setIssuer("https://xxx");
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            Folder dir = r.createProject(Folder.class, "dir");
+            c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext2", null);
+            c.setIssuer("https://xxx");
+            CredentialsProvider.lookupStores(dir).iterator().next().addCredentials(Domain.global(), c);
+            r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
+            r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().grant(Jenkins.ADMINISTER).everywhere().toAuthenticated());
+            JenkinsRule.WebClient wc = r.createWebClient();
+            String descriptorUrl = "descriptorByName/" + IdTokenStringCredentials.class.getName() + "/";
+            String folderDescriptorUrl = "job/dir/" + descriptorUrl;
+            wc.assertFails(descriptorUrl + "checkIssuer?id=ext1&issuer=", 403);
+            wc.assertFails(folderDescriptorUrl + "checkIssuer?id=ext2&issuer=", 403);
+            wc.assertFails(descriptorUrl + "jwks?id=ext1&issuer=", 403);
+            wc.assertFails(folderDescriptorUrl + "jwks?id=ext2&issuer=", 403);
+            wc.login("admin");
+            assertThat(wc.goTo(descriptorUrl + "checkIssuer?id=ext1&issuer=").getWebResponse().getContentAsString(), containsString("/jenkins/oidc"));
+            assertThat(wc.goTo(folderDescriptorUrl + "checkIssuer?id=ext2&issuer=").getWebResponse().getContentAsString(), containsString("/jenkins/oidc/job/dir"));
+            assertThat(wc.goTo(descriptorUrl + "checkIssuer?id=ext1&issuer=https://xxx").getWebResponse().getContentAsString(), containsString("https://xxx/jwks"));
+            HtmlPage message = wc.goTo(folderDescriptorUrl + "checkIssuer?id=ext2&issuer=https://xxx");
+            String messageText = message.getWebResponse().getContentAsString();
+            System.out.println(messageText);
+            assertThat(messageText, containsString("https://xxx/jwks"));
+            for (HtmlAnchor anchor : message.getAnchors()) {
+                wc.getPage(message.getFullyQualifiedUrl(anchor.getHrefAttribute()));
+            }
+            assertThat(wc.goTo(descriptorUrl + "wellKnownOpenidConfiguration?issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"jwks_uri\":\"https://xxx/jwks\""));
+            assertThat(wc.goTo(folderDescriptorUrl + "wellKnownOpenidConfiguration?issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"jwks_uri\":\"https://xxx/jwks\""));
+            assertThat(wc.goTo(descriptorUrl + "jwks?id=ext1&issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"kid\":\"ext1\""));
+            assertThat(wc.goTo(folderDescriptorUrl + "jwks?id=ext2&issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"kid\":\"ext2\""));
         });
     }
 

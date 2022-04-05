@@ -25,11 +25,14 @@
 package io.jenkins.plugins.oidc_provider;
 
 import hudson.Extension;
+import hudson.model.Item;
 import hudson.model.ModelObject;
 import hudson.model.Run;
 import java.util.Collection;
 import java.util.Collections;
 import jenkins.model.Jenkins;
+import org.kohsuke.stapler.StaplerRequest;
+import org.springframework.security.access.AccessDeniedException;
 
 /**
  * Issuer scoped to Jenkins root with global credentials.
@@ -48,8 +51,17 @@ import jenkins.model.Jenkins;
         return "";
     }
 
+    @Override protected void checkExtendedReadPermission() throws AccessDeniedException {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+    }
+
     @Override public Collection<? extends Issuer> forContext(Run<?, ?> context) {
         return Collections.singleton(this);
+    }
+
+    @Override public Issuer forConfig(StaplerRequest req) {
+        // TODO or unconditionally return this, but register at a lower number than FolderIssuer?
+        return req.findAncestorObject(Item.class) == null ? this : null;
     }
 
 }
