@@ -51,6 +51,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.Objects;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.HttpResponses;
@@ -250,7 +251,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             if (c == null) {
                 throw HttpResponses.notFound();
             }
-            return Keys.key(c);
+            return new JSONObject().accumulate("keys", new JSONArray().element(Keys.key(c)));
         }
 
     }
