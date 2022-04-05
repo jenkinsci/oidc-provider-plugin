@@ -87,6 +87,9 @@ public abstract class Issuer {
         return Jenkins.get().getRootUrl() + Keys.URL_NAME + uri();
     }
 
+    /**
+     * Check permision on the {@link #context} to enumerate credentials and get their metadata.
+     */
     protected abstract void checkExtendedReadPermission() throws AccessDeniedException;
 
     @Override public String toString() {
