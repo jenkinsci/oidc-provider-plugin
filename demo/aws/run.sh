@@ -91,7 +91,7 @@ cat >/tmp/trust-policy.json <<JSON
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "StringEquals": {
-        "$host/oidc:sub": "https://$host/job/use-oidc/"
+        "$host/oidc:sub": "use-oidc"
       }
     }
   }

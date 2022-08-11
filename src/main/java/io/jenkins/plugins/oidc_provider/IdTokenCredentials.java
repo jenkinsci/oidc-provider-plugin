@@ -155,7 +155,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             setExpiration(Date.from(new Date().toInstant().plus(1, ChronoUnit.HOURS))).
             setIssuedAt(new Date());
         if (build != null) {
-            builder.setSubject(build.getParent().getAbsoluteUrl()).
+            builder.setSubject(build.getParent().getFullName()).
                 claim("build_number", build.getNumber());
         } else {
             builder.setSubject(Jenkins.get().getRootUrl());

@@ -66,7 +66,7 @@ public class IdTokenStringCredentialsTest {
             getBody();
         System.out.println(claims);
         assertEquals(r.jenkins.getRootUrl() + "oidc", claims.getIssuer());
-        assertEquals(p.getAbsoluteUrl(), claims.getSubject());
+        assertEquals("p", claims.getSubject());
         assertEquals("https://service/", claims.getAudience());
         assertEquals(1, claims.get("build_number", Integer.class).intValue());
     }
@@ -118,7 +118,7 @@ public class IdTokenStringCredentialsTest {
             getBody();
         System.out.println(claims);
         assertEquals("https://some.issuer", claims.getIssuer());
-        assertEquals(p.getAbsoluteUrl(), claims.getSubject());
+        assertEquals("p", claims.getSubject());
     }
 
 }

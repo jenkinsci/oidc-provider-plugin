@@ -100,13 +100,13 @@ public class FolderIssuerTest {
         Claims claims = Jwts.parserBuilder().setSigningKey(global.publicKey()).build().parseClaimsJws(b.getAction(EnvironmentAction.class).getEnvironment().get("RESULT")).getBody();
         System.out.println(claims);
         assertEquals(r.getURL() + "oidc", claims.getIssuer());
-        assertEquals(r.getURL() + "job/top/job/middle/job/bottom/job/p/", claims.getSubject());
+        assertEquals("top/middle/bottom/p", claims.getSubject());
         assertEquals("https://global/", claims.getAudience());
         b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("CREDS", "team"))));
         claims = Jwts.parserBuilder().setSigningKey(team.publicKey()).build().parseClaimsJws(b.getAction(EnvironmentAction.class).getEnvironment().get("RESULT")).getBody();
         System.out.println(claims);
         assertEquals(r.getURL() + "oidc/job/top/job/middle", claims.getIssuer());
-        assertEquals(p.getAbsoluteUrl(), claims.getSubject());
+        assertEquals("top/middle/bottom/p", claims.getSubject());
         assertEquals("https://local/", claims.getAudience());
     }
 
