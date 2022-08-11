@@ -24,19 +24,33 @@
 
 package io.jenkins.plugins.oidc_provider;
 
+import com.google.common.collect.ListMultimap;
+
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.domains.Domain;
+
+import hudson.Extension;
+import hudson.FilePath;
+import hudson.model.AbstractBuild;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 import hudson.slaves.DumbSlave;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
+import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
 import static org.junit.Assert.*;
+
+import java.io.IOException;
+import java.util.Map;
+
 import org.junit.Rule;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -72,6 +86,8 @@ public class IdTokenFileCredentialsTest {
             parseClaimsJws(idToken).
             getBody();
         assertEquals(r.jenkins.getRootUrl() + "oidc", claims.getIssuer());
+        assertEquals("my_git_revision", claims.get("git_revision", String.class));
+        assertEquals("my_git_branch", claims.get("git_branch", String.class));
     }
 
     @Test public void declarative() throws Exception {
@@ -103,6 +119,31 @@ public class IdTokenFileCredentialsTest {
             parseClaimsJws(idToken).
             getBody();
         System.out.println(claims);
+        assertEquals("my_git_revision", claims.get("git_revision", String.class));
+        assertEquals("my_git_branch", claims.get("git_branch", String.class));
+    }
+
+    @Extension
+    public static class GitTokenMacro extends TokenMacro {
+
+        @Override
+        public boolean acceptsMacroName(String macroName) {
+            return true;
+        }
+
+        @Override
+        public String evaluate(Run<?, ?> run, FilePath workspace, TaskListener listener, String macroName,
+                Map<String, String> arguments, ListMultimap<String, String> argumentMultimap)
+                throws MacroEvaluationException, IOException, InterruptedException {
+            return String.format("my_%s", macroName.toLowerCase());
+        }
+
+        @Override
+        public String evaluate(AbstractBuild<?, ?> context, TaskListener listener, String macroName,
+                Map<String, String> arguments, ListMultimap<String, String> argumentMultimap)
+                throws MacroEvaluationException, IOException, InterruptedException {
+            return String.format("my_%s", macroName.toLowerCase());
+        }
     }
 
 }

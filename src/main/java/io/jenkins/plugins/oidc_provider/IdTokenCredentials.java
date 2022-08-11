@@ -30,12 +30,15 @@ import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
+import hudson.FilePath;
 import hudson.Util;
 import hudson.model.Run;
 import hudson.util.FormValidation;
+import hudson.util.LogTaskListener;
 import hudson.util.Secret;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyFactory;
@@ -49,10 +52,15 @@ import java.security.spec.RSAPublicKeySpec;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Date;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.HashMap;
 import java.util.Objects;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
+import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
+import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.QueryParameter;
@@ -80,6 +88,8 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
     private transient @CheckForNull Run<?, ?> build;
 
+    private static final Logger LOGGER = Logger.getLogger(IdTokenCredentials.class.getName());
+
     protected IdTokenCredentials(CredentialsScope scope, String id, String description) {
         this(scope, id, description, generatePrivateKey());
     }
@@ -97,6 +107,10 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
     private IdTokenCredentials(CredentialsScope scope, String id, String description, KeyPair kp) {
         this(scope, id, description, kp, serializePrivateKey(kp));
+    }
+
+    private String getToken(Run<?, ?> build, String template) throws InterruptedException, IOException, MacroEvaluationException {
+        return TokenMacro.expand(build, new FilePath(build.getRootDir()), new LogTaskListener(LOGGER, Level.INFO), template);
     }
 
     private static Secret serializePrivateKey(KeyPair kp) {
@@ -154,12 +168,26 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             setAudience(audience).
             setExpiration(Date.from(new Date().toInstant().plus(1, ChronoUnit.HOURS))).
             setIssuedAt(new Date());
+
         if (build != null) {
             builder.setSubject(build.getParent().getAbsoluteUrl()).
                 claim("build_number", build.getNumber());
         } else {
             builder.setSubject(Jenkins.get().getRootUrl());
         }
+
+        // Set claims from token macros, if available
+        HashMap<String, String> tokenMacros = new HashMap<>();
+        tokenMacros.put("git_branch", "${GIT_BRANCH,fullName=false}");
+        tokenMacros.put("git_revision", "${GIT_REVISION}");
+        tokenMacros.forEach((claimName, tokenMacro) -> {
+            try {
+                builder.claim(claimName, this.getToken(build, tokenMacro));
+            } catch(InterruptedException | IOException | MacroEvaluationException e) {
+                LOGGER.log(Level.WARNING, String.format("Failed to get token macro: %s. %s", tokenMacro, e.toString()));
+            }
+        });
+
         return builder.
             signWith(kp.getPrivate()).
             compact();

@@ -96,6 +96,13 @@ When the id token credentials are accessed during a build
 Jenkins will generate a fresh id token scoped to that build with a limited validity.
 Refer to service-specific documentation to see how the token can be used to authenticate.
 
+### Accessing git branch and revision id
+
+The plugin can automatically consume the
+[*${GIT_BRANCH}* and *${GIT_REVISION}* token macro variables](https://plugins.jenkins.io/git/#plugin-content-token-macro-variables)
+set by the git Jenkins plugin. These are written in the JWT token as additional
+claims, named similarly but all lower case (*git_branch*, *git_revision*).
+
 ## Examples
 
 Some tested usage examples follow. Please contribute others!
