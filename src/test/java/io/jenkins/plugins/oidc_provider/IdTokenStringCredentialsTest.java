@@ -29,7 +29,6 @@ import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import com.google.common.collect.ListMultimap;
 
-import hudson.Extension;
 import hudson.FilePath;
 import hudson.model.AbstractBuild;
 import hudson.model.Run;
@@ -44,6 +43,7 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
+import org.jvnet.hudson.test.TestExtension;
 import static org.junit.Assert.*;
 
 import java.io.IOException;
@@ -138,7 +138,7 @@ public class IdTokenStringCredentialsTest {
         assertEquals("my_git_branch", claims.get("git_branch", String.class));
     }
 
-    @Extension
+    @TestExtension
     public static class GitTokenMacro extends TokenMacro {
 
         @Override
