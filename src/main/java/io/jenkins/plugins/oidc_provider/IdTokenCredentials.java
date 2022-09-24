@@ -32,10 +32,12 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
 import hudson.Util;
 import hudson.model.Run;
+import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyFactory;
@@ -48,8 +50,12 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -154,12 +160,31 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             setAudience(audience).
             setExpiration(Date.from(new Date().toInstant().plus(1, ChronoUnit.HOURS))).
             setIssuedAt(new Date());
+        Map<String, String> env;
         if (build != null) {
-            builder.setSubject(build.getParent().getAbsoluteUrl()).
-                claim("build_number", build.getNumber());
+            try {
+                env = build.getEnvironment(TaskListener.NULL);
+            } catch (IOException | InterruptedException x) {
+                throw new RuntimeException(x);
+            }
         } else {
-            builder.setSubject(Jenkins.get().getRootUrl());
+            // EnvVars.masterEnvVars might not be safe to expose
+            env = Collections.singletonMap("JENKINS_URL", Jenkins.get().getRootUrl());
         }
+        IdTokenConfiguration cfg = IdTokenConfiguration.get();
+        Consumer<List<IdTokenConfiguration.ClaimTemplate>> addClaims = claimTemplates -> {
+            for (IdTokenConfiguration.ClaimTemplate t : claimTemplates) {
+                // TODO prevent override of iss, aud, etc.
+                builder.claim(t.name, Util.replaceMacro(t.format, env));
+            }
+        };
+        addClaims.accept(cfg.getClaimTemplates());
+        if (build != null) {
+            addClaims.accept(cfg.getBuildClaimTemplates());
+        } else {
+            addClaims.accept(cfg.getGlobalClaimTemplates());
+        }
+        // TODO verify that sub was defined
         return builder.
             signWith(kp.getPrivate()).
             compact();

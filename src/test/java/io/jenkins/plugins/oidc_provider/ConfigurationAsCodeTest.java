@@ -48,5 +48,7 @@ public class ConfigurationAsCodeTest {
         assertThat(c2.getId(), is("my-jwt-2"));
         assertThat(c2.getAudience(), is(nullValue()));
     }
+    
+    // TODO test IdTokenConfiguration as YAML
 
 }
