@@ -55,7 +55,7 @@ public final class FolderIssuer extends Issuer {
     /**
      * Usually the same as {@link AbstractItem#getUrl} (with leading rather than trailing slash)
      * but ignores “current” view as well as unusual {@link ItemGroup#getUrlChildPrefix}s.
-     * (In practice the only override of the latter is in {@code MultiBranchProject}, whose children would not be folders.)
+     * (In practice there are no overrides of the latter whose children could be folders.)
      */
     @Override protected String uri() {
         return "/job/" + folder.getFullName().replace("/", "/job/");
