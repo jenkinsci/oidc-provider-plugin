@@ -35,6 +35,7 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import java.io.IOException;
@@ -49,12 +50,16 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
@@ -153,6 +158,26 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
         return (RSAPublicKey) kp.getPublic();
     }
 
+    /**
+     * Claims that must not be defined by user claim templates, because they have special meanings.
+     * {@code sub} is treated specially: it <em>must</em> be defined by a claim template.
+     * @see <a href="https://openid.net/specs/openid-connect-core-1_0.html#IDToken">OpenID Connect list</a>
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc7519#section-4.1">JWT list</a>
+     */
+    private static final Set<String> STANDARD_CLAIMS = new HashSet<>(Arrays.asList(
+        Claims.ISSUER,
+        Claims.AUDIENCE,
+        Claims.EXPIRATION,
+        Claims.ISSUED_AT,
+        "auth_time",
+        "nonce",
+        "acr",
+        "amr",
+        "azp",
+        Claims.NOT_BEFORE,
+        Claims.ID
+    ));
+
     protected final @NonNull String token() {
         JwtBuilder builder = Jwts.builder().
             setHeaderParam("kid", getId()).
@@ -172,9 +197,14 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             env = Collections.singletonMap("JENKINS_URL", Jenkins.get().getRootUrl());
         }
         IdTokenConfiguration cfg = IdTokenConfiguration.get();
+        AtomicBoolean definedSub = new AtomicBoolean();
         Consumer<List<IdTokenConfiguration.ClaimTemplate>> addClaims = claimTemplates -> {
             for (IdTokenConfiguration.ClaimTemplate t : claimTemplates) {
-                // TODO prevent override of iss, aud, etc.
+                if (STANDARD_CLAIMS.contains(t.name)) {
+                    throw new SecurityException("An id token claim template must not specify " + t.name);
+                } else if (t.name.equals(Claims.SUBJECT)) {
+                    definedSub.set(true);
+                }
                 builder.claim(t.name, Util.replaceMacro(t.format, env));
             }
         };
@@ -184,7 +214,9 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
         } else {
             addClaims.accept(cfg.getGlobalClaimTemplates());
         }
-        // TODO verify that sub was defined
+        if (!definedSub.get()) {
+            throw new SecurityException("An id token claim template must specify " + Claims.SUBJECT);
+        }
         return builder.
             signWith(kp.getPrivate()).
             compact();

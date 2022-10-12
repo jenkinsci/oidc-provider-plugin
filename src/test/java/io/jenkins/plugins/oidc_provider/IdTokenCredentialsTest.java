@@ -31,6 +31,7 @@ import com.cloudbees.plugins.credentials.domains.Domain;
 import com.gargoylesoftware.htmlunit.html.HtmlAnchor;
 import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
+import hudson.model.Result;
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.List;
@@ -39,6 +40,8 @@ import jenkins.model.Jenkins;
 import org.junit.Test;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
+import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.junit.Rule;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.JenkinsSessionRule;
@@ -114,6 +117,20 @@ public class IdTokenCredentialsTest {
             assertThat(wc.goTo(folderDescriptorUrl + "wellKnownOpenidConfiguration?issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"jwks_uri\":\"https://xxx/jwks\""));
             assertThat(wc.goTo(descriptorUrl + "jwks?id=ext1&issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"kid\":\"ext1\""));
             assertThat(wc.goTo(folderDescriptorUrl + "jwks?id=ext2&issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"kid\":\"ext2\""));
+        });
+    }
+
+    @Test public void invalidCustomClaims() throws Throwable {
+        rr.then(r -> {
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null));
+            WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {echo(/should not get $TOK/)}", true));
+            IdTokenConfiguration cfg = IdTokenConfiguration.get();
+            cfg.setClaimTemplates(Collections.singletonList(new IdTokenConfiguration.ClaimTemplate("iss", "oops must not be overridden")));
+            r.assertLogContains("must not specify iss", r.buildAndAssertStatus(Result.FAILURE, p));
+            cfg.setClaimTemplates(Collections.emptyList());
+            cfg.setBuildClaimTemplates(Collections.singletonList(new IdTokenConfiguration.ClaimTemplate("stuff", "fine but where is sub?")));
+            r.assertLogContains("must specify sub", r.buildAndAssertStatus(Result.FAILURE, p));
         });
     }
 
