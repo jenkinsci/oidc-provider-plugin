@@ -31,4 +31,7 @@ THE SOFTWARE.
     <f:entry field="format" title="${%Value format}">
         <f:textbox/>
     </f:entry>
+    <f:entry field="type" title="${%Value type}">
+        <f:select/>
+    </f:entry>
 </j:jelly>

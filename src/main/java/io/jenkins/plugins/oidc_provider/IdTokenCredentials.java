@@ -205,7 +205,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                 } else if (t.name.equals(Claims.SUBJECT)) {
                     definedSub.set(true);
                 }
-                builder.claim(t.name, Util.replaceMacro(t.format, env));
+                builder.claim(t.name, t.type.parse(Util.replaceMacro(t.format, env)));
             }
         };
         addClaims.accept(cfg.getClaimTemplates());

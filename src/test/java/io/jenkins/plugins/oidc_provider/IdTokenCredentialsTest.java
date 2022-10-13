@@ -126,10 +126,10 @@ public class IdTokenCredentialsTest {
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {echo(/should not get $TOK/)}", true));
             IdTokenConfiguration cfg = IdTokenConfiguration.get();
-            cfg.setClaimTemplates(Collections.singletonList(new IdTokenConfiguration.ClaimTemplate("iss", "oops must not be overridden")));
+            cfg.setClaimTemplates(Collections.singletonList(new IdTokenConfiguration.ClaimTemplate("iss", "oops must not be overridden", IdTokenConfiguration.ClaimType.STRING)));
             r.assertLogContains("must not specify iss", r.buildAndAssertStatus(Result.FAILURE, p));
             cfg.setClaimTemplates(Collections.emptyList());
-            cfg.setBuildClaimTemplates(Collections.singletonList(new IdTokenConfiguration.ClaimTemplate("stuff", "fine but where is sub?")));
+            cfg.setBuildClaimTemplates(Collections.singletonList(new IdTokenConfiguration.ClaimTemplate("stuff", "fine but where is sub?", IdTokenConfiguration.ClaimType.STRING)));
             r.assertLogContains("must specify sub", r.buildAndAssertStatus(Result.FAILURE, p));
         });
     }
