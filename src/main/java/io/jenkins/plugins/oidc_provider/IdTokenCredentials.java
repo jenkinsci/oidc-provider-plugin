@@ -35,6 +35,8 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
+import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
+import io.jenkins.plugins.oidc_provider.config.IdTokenConfiguration;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
@@ -198,8 +200,8 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
         }
         IdTokenConfiguration cfg = IdTokenConfiguration.get();
         AtomicBoolean definedSub = new AtomicBoolean();
-        Consumer<List<IdTokenConfiguration.ClaimTemplate>> addClaims = claimTemplates -> {
-            for (IdTokenConfiguration.ClaimTemplate t : claimTemplates) {
+        Consumer<List<ClaimTemplate>> addClaims = claimTemplates -> {
+            for (ClaimTemplate t : claimTemplates) {
                 if (STANDARD_CLAIMS.contains(t.name)) {
                     throw new SecurityException("An id token claim template must not specify " + t.name);
                 } else if (t.name.equals(Claims.SUBJECT)) {

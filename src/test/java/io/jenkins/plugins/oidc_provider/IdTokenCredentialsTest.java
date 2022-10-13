@@ -24,6 +24,9 @@
 
 package io.jenkins.plugins.oidc_provider;
 
+import io.jenkins.plugins.oidc_provider.config.IdTokenConfiguration;
+import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
+import io.jenkins.plugins.oidc_provider.config.ClaimType;
 import com.cloudbees.hudson.plugins.folder.Folder;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
@@ -32,6 +35,7 @@ import com.gargoylesoftware.htmlunit.html.HtmlAnchor;
 import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import hudson.model.Result;
+import io.jenkins.plugins.oidc_provider.config.StringClaimType;
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.List;
@@ -126,10 +130,10 @@ public class IdTokenCredentialsTest {
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {echo(/should not get $TOK/)}", true));
             IdTokenConfiguration cfg = IdTokenConfiguration.get();
-            cfg.setClaimTemplates(Collections.singletonList(new IdTokenConfiguration.ClaimTemplate("iss", "oops must not be overridden", IdTokenConfiguration.ClaimType.STRING)));
+            cfg.setClaimTemplates(Collections.singletonList(new ClaimTemplate("iss", "oops must not be overridden", new StringClaimType())));
             r.assertLogContains("must not specify iss", r.buildAndAssertStatus(Result.FAILURE, p));
             cfg.setClaimTemplates(Collections.emptyList());
-            cfg.setBuildClaimTemplates(Collections.singletonList(new IdTokenConfiguration.ClaimTemplate("stuff", "fine but where is sub?", IdTokenConfiguration.ClaimType.STRING)));
+            cfg.setBuildClaimTemplates(Collections.singletonList(new ClaimTemplate("stuff", "fine but where is sub?", new StringClaimType())));
             r.assertLogContains("must specify sub", r.buildAndAssertStatus(Result.FAILURE, p));
         });
     }

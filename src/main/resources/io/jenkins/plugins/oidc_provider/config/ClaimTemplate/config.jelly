@@ -25,33 +25,13 @@ THE SOFTWARE.
 
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
-    <f:section title="OpenID Connect">
-        <f:entry field="claimTemplates" title="${%General claim templates}">
-            <f:repeatableProperty field="claimTemplates">
-                <f:block>
-                    <div align="right">
-                        <f:repeatableDeleteButton/>
-                    </div>
-                </f:block>
-            </f:repeatableProperty>
-        </f:entry>
-        <f:entry field="buildClaimTemplates" title="${%Build-scoped claim templates}">
-            <f:repeatableProperty field="buildClaimTemplates">
-                <f:block>
-                    <div align="right">
-                        <f:repeatableDeleteButton/>
-                    </div>
-                </f:block>
-            </f:repeatableProperty>
-        </f:entry>
-        <f:entry field="globalClaimTemplates" title="${%Globally-scoped claim templates}">
-            <f:repeatableProperty field="globalClaimTemplates">
-                <f:block>
-                    <div align="right">
-                        <f:repeatableDeleteButton/>
-                    </div>
-                </f:block>
-            </f:repeatableProperty>
-        </f:entry>
-    </f:section>
+    <f:entry field="name" title="${%Name}">
+        <f:textbox/>
+    </f:entry>
+    <f:entry field="format" title="${%Value format}">
+        <f:textbox/>
+    </f:entry>
+    <f:entry field="type" title="${%Value type}">
+        <f:dropdownDescriptorSelector field="type" default="${descriptor.defaultType}"/>
+    </f:entry>
 </j:jelly>
