@@ -83,8 +83,8 @@ or the service may specify an audience you should use.
 The service may allow authorization decisions to be made based on various claims:
 the `iss` (issuer),
 the `aud` (audience),
-the `sub` (subject—in this context the URL of a Jenkins job),
-or others (currently a Jenkins build number is included).
+the `sub` (subject—in this context, by default the URL of a Jenkins job),
+or others (currently a Jenkins build number is included by default).
 
 The service may associate an identity provider with a service account, role, etc.
 This is normally how specific privileges for specific objects are granted.
@@ -95,6 +95,23 @@ When the id token credentials are accessed during a build
 (typically via the [Credentials Binding plugin](https://plugins.jenkins.io/credentials-binding/)),
 Jenkins will generate a fresh id token scoped to that build with a limited validity.
 Refer to service-specific documentation to see how the token can be used to authenticate.
+
+### Configuring claims
+
+If the default claims are not sufficient, you can customize them.
+Go to **Manage Jenkins** » **Configure Global Security**
+and under **OpenID Connect** edit the **Claim templates…** to your liking.
+
+Each template represent a claim (JSON property) to be set in id tokens.
+You must include at least <code>sub</code> (subject) in the list.
+The value may be a fixed string, or it may be use substitutions from build variables.
+For example, `jenkins:${BRANCH_NAME}:${BUILD_NUMBER}` might expand to `jenkins:master:123`.
+Normally the claim will be set to a **string** but you may choose a **boolean** (`true` or `false`)
+or an **integer** if you prefer these types in the JWT.
+
+You can add claims to all id tokens, those used during builds,
+or those used outside of builds (for example by other Jenkins plugins accepting string credentials).
+All applicable kinds of claim templates will be merged.
 
 ## Examples
 
