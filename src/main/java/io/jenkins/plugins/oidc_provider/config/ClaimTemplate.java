@@ -28,6 +28,11 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
+import java.util.List;
+import java.util.stream.Collectors;
+import jenkins.model.Jenkins;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> {
@@ -40,6 +45,16 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
         this.name = name;
         this.format = format;
         this.type = type;
+    }
+
+    @Restricted(NoExternalUse.class)
+    public String xmlForm() {
+        return Jenkins.XSTREAM2.toXML(this);
+    }
+
+    @Restricted(NoExternalUse.class)
+    public static List<String> xmlForm(List<ClaimTemplate> claimTemplates) {
+        return claimTemplates.stream().map(ct -> Jenkins.XSTREAM2.toXML(ct)).collect(Collectors.toList());
     }
 
     @Extension public static final class DescriptorImpl extends Descriptor<ClaimTemplate> {

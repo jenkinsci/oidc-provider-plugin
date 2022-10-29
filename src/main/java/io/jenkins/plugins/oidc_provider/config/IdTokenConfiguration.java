@@ -33,14 +33,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.GlobalConfigurationCategory;
-import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
+import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest;
 
+@Symbol("idToken")
 @Extension public final class IdTokenConfiguration extends GlobalConfiguration {
 
     private static final List<ClaimTemplate> DEFAULT_CLAIM_TEMPLATES = Collections.emptyList();
@@ -73,8 +73,7 @@ import org.kohsuke.stapler.StaplerRequest;
         if (claimTemplates == null) {
             return null;
         }
-        if (claimTemplates.stream().map(ct -> Jenkins.XSTREAM2.toXML(ct)).collect(Collectors.toList()).equals(
-            defaultClaimTemplates.stream().map(ct -> Jenkins.XSTREAM2.toXML(ct)).collect(Collectors.toList()))) {
+        if (ClaimTemplate.xmlForm(claimTemplates).equals(ClaimTemplate.xmlForm(defaultClaimTemplates))) {
             return null;
         } else {
             return new ArrayList<>(claimTemplates);
