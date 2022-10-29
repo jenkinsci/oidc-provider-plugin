@@ -28,12 +28,15 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
+import hudson.util.FormValidation;
+import io.jenkins.plugins.oidc_provider.IdTokenCredentials;
 import java.util.List;
 import java.util.stream.Collectors;
 import jenkins.model.Jenkins;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
 
 public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> {
 
@@ -61,6 +64,16 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
 
         public ClaimType getDefaultType() {
             return new StringClaimType();
+        }
+
+        public FormValidation doCheckName(@QueryParameter String value) {
+            if (value.isBlank()) {
+                return FormValidation.error("You must specify a claim name.");
+            } else if (IdTokenCredentials.STANDARD_CLAIMS.contains(value)) {
+                return FormValidation.error("You must not specify this standard claim.");
+            } else {
+                return FormValidation.ok();
+            }
         }
 
     }

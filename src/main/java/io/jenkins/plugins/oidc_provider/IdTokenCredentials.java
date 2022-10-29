@@ -166,7 +166,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
      * @see <a href="https://openid.net/specs/openid-connect-core-1_0.html#IDToken">OpenID Connect list</a>
      * @see <a href="https://www.rfc-editor.org/rfc/rfc7519#section-4.1">JWT list</a>
      */
-    private static final Set<String> STANDARD_CLAIMS = new HashSet<>(Arrays.asList(
+    public static final Set<String> STANDARD_CLAIMS = new HashSet<>(Arrays.asList(
         Claims.ISSUER,
         Claims.AUDIENCE,
         Claims.EXPIRATION,
