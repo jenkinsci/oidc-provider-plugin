@@ -26,6 +26,7 @@ package io.jenkins.plugins.oidc_provider.config;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import hudson.Util;
 import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
 import hudson.util.FormValidation;
@@ -67,7 +68,7 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
         }
 
         public FormValidation doCheckName(@QueryParameter String value) {
-            if (value.isBlank()) {
+            if (Util.fixEmpty(value) == null) {
                 return FormValidation.error("You must specify a claim name.");
             } else if (IdTokenCredentials.STANDARD_CLAIMS.contains(value)) {
                 return FormValidation.error("You must not specify this standard claim.");
