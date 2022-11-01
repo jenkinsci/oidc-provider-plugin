@@ -28,10 +28,17 @@ import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import io.jenkins.plugins.casc.misc.ConfiguredWithCode;
 import io.jenkins.plugins.casc.misc.JenkinsConfiguredWithCodeRule;
+import io.jenkins.plugins.oidc_provider.config.BooleanClaimType;
+import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
+import io.jenkins.plugins.oidc_provider.config.IdTokenConfiguration;
+import io.jenkins.plugins.oidc_provider.config.IntegerClaimType;
+import io.jenkins.plugins.oidc_provider.config.StringClaimType;
+import java.util.Arrays;
 import java.util.Collections;
 import org.junit.Test;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 import org.junit.Rule;
 
 public class ConfigurationAsCodeTest {
@@ -47,6 +54,17 @@ public class ConfigurationAsCodeTest {
         IdTokenFileCredentials c2 = CredentialsProvider.lookupCredentials(IdTokenFileCredentials.class, r.jenkins, null, Collections.emptyList()).get(0);
         assertThat(c2.getId(), is("my-jwt-2"));
         assertThat(c2.getAudience(), is(nullValue()));
+    }
+
+    @ConfiguredWithCode("global.yaml")
+    @Test public void globalConfiguration() throws Exception {
+        IdTokenConfiguration cfg = IdTokenConfiguration.get();
+        assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType()))),
+            ClaimTemplate.xmlForm(cfg.getClaimTemplates()));
+        assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType()))),
+            ClaimTemplate.xmlForm(cfg.getGlobalClaimTemplates()));
+        assertEquals(ClaimTemplate.xmlForm(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType()))),
+            ClaimTemplate.xmlForm(cfg.getBuildClaimTemplates()));
     }
 
 }
