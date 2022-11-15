@@ -1,5 +1,6 @@
 security:
   idToken:
+    tokenLifetime: 60
     claimTemplates:
     - name: ok
       format: "true"
