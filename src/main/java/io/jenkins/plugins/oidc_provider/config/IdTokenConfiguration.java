@@ -57,7 +57,7 @@ import org.kohsuke.stapler.StaplerRequest;
         return ExtensionList.lookupSingleton(IdTokenConfiguration.class);
     }
 
-    private Integer tokenLifetime = 7200;
+    private Integer tokenLifetime = 3600;
 
     private @CheckForNull List<ClaimTemplate> claimTemplates;
     private @CheckForNull List<ClaimTemplate> buildClaimTemplates;
