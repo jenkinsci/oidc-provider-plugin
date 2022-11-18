@@ -24,22 +24,35 @@
 
 package io.jenkins.plugins.oidc_provider;
 
+import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.CredentialsStore;
+import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import com.gargoylesoftware.htmlunit.Page;
+import hudson.ExtensionList;
+import hudson.model.ItemGroup;
+import hudson.model.ModelObject;
+import hudson.security.Permission;
+import java.io.IOException;
 import java.net.URL;
+import java.util.Collections;
+import java.util.List;
 import java.util.logging.Level;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.Assert.assertEquals;
 import org.junit.Test;
-import static org.junit.Assert.*;
 import org.junit.Rule;
+import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
+import org.jvnet.hudson.test.TestExtension;
 
 public class KeysTest {
 
@@ -70,6 +83,52 @@ public class KeysTest {
         assertEquals("AQAB", key.getString("e"));
         assertEquals("RS256", key.getString("alg"));
         assertEquals("sig", key.getString("use"));
+    }
+
+    @Issue("https://github.com/jenkinsci/oidc-provider-plugin/issues/21")
+    @Test public void extraCredentialsProvider() throws Exception {
+        assertThat(ExtensionList.lookup(CredentialsProvider.class).get(0), instanceOf(ExtraProvider.class));
+        SystemCredentialsProvider.getInstance().getDomainCredentialsMap().get(Domain.global()).add(new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null));
+        JSONObject config = r.getJSON("oidc/.well-known/openid-configuration").getJSONObject();
+        System.err.println(config.toString(2));
+        assertEquals(r.getURL() + "oidc", config.getString("issuer"));
+        JenkinsRule.WebClient wc = r.createWebClient();
+        Page p = wc.getPage(new URL(config.getString("jwks_uri")));
+        assertEquals("application/json", p.getWebResponse().getContentType());
+        JSONObject jwks = JSONObject.fromObject(p.getWebResponse().getContentAsString());
+        System.err.println(jwks.toString(2));
+        JSONArray keys = jwks.getJSONArray("keys");
+        assertEquals(1, keys.size());
+        JSONObject key = keys.getJSONObject(0);
+        assertEquals("global", key.getString("kid"));
+    }
+    @SuppressWarnings({"deprecation", "rawtypes"})
+    @TestExtension("extraCredentialsProvider") public static final class ExtraProvider extends CredentialsProvider {
+        @Override public <C extends Credentials> List<C> getCredentials(Class<C> type, ItemGroup itemGroup,  org.acegisecurity.Authentication authentication) {
+            return Collections.emptyList();
+        }
+        @Override public CredentialsStore getStore(ModelObject object) {
+            return new CredentialsStore(ExtraProvider.class) {
+                @Override public ModelObject getContext() {
+                    return object;
+                }
+                @Override public boolean hasPermission(org.acegisecurity.Authentication a, Permission permission) {
+                    return true;
+                }
+                @Override public List<Credentials> getCredentials(Domain domain) {
+                    return Collections.emptyList();
+                }
+                @Override public boolean addCredentials(Domain domain, Credentials credentials) throws IOException {
+                    throw new IOException("no");
+                }
+                @Override public boolean removeCredentials(Domain domain, Credentials credentials) throws IOException {
+                    throw new IOException("no");
+                }
+                @Override public boolean updateCredentials(Domain domain, Credentials current, Credentials replacement) throws IOException {
+                    throw new IOException("no");
+                }
+            };
+        }
     }
 
 }
