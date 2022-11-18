@@ -24,6 +24,7 @@
 
 package io.jenkins.plugins.oidc_provider;
 
+import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.domains.Domain;
@@ -35,9 +36,10 @@ import hudson.model.ItemGroup;
 import hudson.model.ModelObject;
 import hudson.model.Run;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.StaplerRequest;
 import org.springframework.security.access.AccessDeniedException;
@@ -46,6 +48,8 @@ import org.springframework.security.access.AccessDeniedException;
  * Representation of an issuer of tokens.
  */
 public abstract class Issuer {
+
+    private static final Logger LOGGER = Logger.getLogger(Issuer.class.getName());
 
     /**
      * The associated object in Jenkins.
@@ -60,14 +64,22 @@ public abstract class Issuer {
      * @return a possibly empty set of credentials
      */
     public final @NonNull Collection<? extends IdTokenCredentials> credentials() {
+        Map<String, IdTokenCredentials> credentials = new LinkedHashMap<>();
         for (CredentialsProvider p : CredentialsProvider.enabled(context())) {
             CredentialsStore store = p.getStore(context());
             if (store != null) {
+                LOGGER.fine(() -> "found " + store + " for " + context());
                 // TODO should we consider other domains?
-                return store.getCredentials(Domain.global()).stream().filter(IdTokenCredentials.class::isInstance).map(IdTokenCredentials.class::cast).collect(Collectors.toList());
+                for (Credentials c : store.getCredentials(Domain.global())) {
+                    if (c instanceof IdTokenCredentials) {
+                        IdTokenCredentials itc = (IdTokenCredentials) c;
+                        credentials.putIfAbsent(itc.getId(), itc);
+                    }
+                }
             }
         }
-        return Collections.emptySet();
+        LOGGER.fine(() -> "in " + context() + " found " + credentials.keySet());
+        return credentials.values();
     }
 
     /**
