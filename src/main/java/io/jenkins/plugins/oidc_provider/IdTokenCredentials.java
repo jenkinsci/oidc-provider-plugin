@@ -35,6 +35,7 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
+import io.jenkins.plugins.oidc_provider.Keys.SupportedKeyAlgorithm;
 import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
 import io.jenkins.plugins.oidc_provider.config.IdTokenConfiguration;
 import io.jsonwebtoken.Claims;
@@ -45,10 +46,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.security.interfaces.RSAPrivateCrtKey;
-import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.time.Instant;
@@ -83,10 +82,16 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
     private transient KeyPair kp;
 
     /**
-     * Encrypted {@link Base64} encoding of RSA private key in {@link RSAPrivateCrtKey} / {@link PKCS8EncodedKeySpec} format.
+     * Encrypted {@link Base64} encoding of private key in {@link RSAPrivateCrtKey} / {@link PKCS8EncodedKeySpec}
+     * format.
      * The public key is inferred from this to reload {@link #kp}.
+     * <br/>
+     * The field has been replaced by {@link #secretKeyPair} and only stays around for
+     * compatibility reasons.
      */
-    private final Secret privateKey;
+    @Deprecated private transient Secret privateKey;
+
+    private SecretKeyPair secretKeyPair;
 
     private @CheckForNull String issuer;
 
@@ -94,40 +99,53 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
     private transient @CheckForNull Run<?, ?> build;
 
+    private @NonNull SupportedKeyAlgorithm algorithm;
+
     protected IdTokenCredentials(CredentialsScope scope, String id, String description) {
-        this(scope, id, description, generatePrivateKey());
+        this(scope, id, description, IdTokenConfiguration.get().getAlgorithm());
     }
 
-    private static KeyPair generatePrivateKey() {
-        KeyPairGenerator gen;
-        try {
-            gen = KeyPairGenerator.getInstance("RSA");
-        } catch (NoSuchAlgorithmException x) {
-            throw new AssertionError(x);
-        }
-        gen.initialize(2048);
-        return gen.generateKeyPair();
+    protected IdTokenCredentials(CredentialsScope scope, String id, String description,
+        SupportedKeyAlgorithm algorithm) {
+        this(scope, id, description, algorithm.generateKeyPair(), algorithm);
     }
 
-    private IdTokenCredentials(CredentialsScope scope, String id, String description, KeyPair kp) {
-        this(scope, id, description, kp, serializePrivateKey(kp));
+    private IdTokenCredentials(CredentialsScope scope, String id, String description, KeyPair kp,
+        SupportedKeyAlgorithm algorithm) {
+        this(scope, id, description, kp, algorithm, SecretKeyPair.fromKeyPair(algorithm, kp));
     }
 
-    private static Secret serializePrivateKey(KeyPair kp) {
-        assert ((RSAPublicKey) kp.getPublic()).getModulus().equals(((RSAPrivateCrtKey) kp.getPrivate()).getModulus());
-        return Secret.fromString(Base64.getEncoder().encodeToString(kp.getPrivate().getEncoded()));
-    }
-
-    protected IdTokenCredentials(CredentialsScope scope, String id, String description, KeyPair kp, Secret privateKey) {
+    protected IdTokenCredentials(CredentialsScope scope, String id, String description, KeyPair kp,
+        SupportedKeyAlgorithm algorithm, SecretKeyPair secretKeyPair) {
         super(scope, id, description);
+
+        Objects.requireNonNull(kp);
+        Objects.requireNonNull(algorithm);
+        Objects.requireNonNull(secretKeyPair);
+
         this.kp = kp;
-        this.privateKey = privateKey;
+        this.algorithm = algorithm;
+        this.secretKeyPair = secretKeyPair;
     }
 
     protected Object readResolve() throws Exception {
-        KeyFactory kf = KeyFactory.getInstance("RSA");
-        RSAPrivateCrtKey priv = (RSAPrivateCrtKey) kf.generatePrivate(new PKCS8EncodedKeySpec(Base64.getDecoder().decode(privateKey.getPlainText())));
-        kp = new KeyPair(kf.generatePublic(new RSAPublicKeySpec(priv.getModulus(), priv.getPublicExponent())), priv);
+        // the private key should only be set for old versions of the credentials
+        // back then, only RSA256 ws supported and this block is handling the conversion
+        if (privateKey != null) {
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+
+            RSAPrivateCrtKey priv = (RSAPrivateCrtKey) kf.generatePrivate(
+                new PKCS8EncodedKeySpec(Base64.getDecoder().decode(privateKey.getPlainText())));
+            kp = new KeyPair(kf.generatePublic(new RSAPublicKeySpec(priv.getModulus(), priv.getPublicExponent())),
+                priv);
+            algorithm = SupportedKeyAlgorithm.RS256;
+            secretKeyPair = SecretKeyPair.fromKeyPair(algorithm, kp);
+
+            return this;
+        }
+
+        kp = secretKeyPair.toKeyPair();
+
         return this;
     }
 
@@ -147,18 +165,38 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
         this.audience = Util.fixEmpty(audience);
     }
 
-    protected abstract IdTokenCredentials clone(KeyPair kp, Secret privateKey);
+    public void setAlgorithm(SupportedKeyAlgorithm algorithm) {
+        Objects.requireNonNull(algorithm);
+
+        boolean shouldRotate= this.algorithm == algorithm;
+
+        this.algorithm = algorithm;
+
+        if(shouldRotate) {
+            rotateKeyPair();
+        }
+    }
+
+    private void rotateKeyPair() {
+        this.secretKeyPair = SecretKeyPair.forAlgorithm(algorithm);
+    }
+
+    @NonNull public SupportedKeyAlgorithm getAlgorithm() {
+        return algorithm;
+    }
+
+    protected abstract IdTokenCredentials clone(KeyPair kp, SupportedKeyAlgorithm algorithm, SecretKeyPair secretKeyPair);
 
     @Override public final Credentials forRun(Run<?, ?> context) {
-        IdTokenCredentials clone = clone(kp, privateKey);
+        IdTokenCredentials clone = clone(kp, algorithm, secretKeyPair);
         clone.issuer = issuer;
         clone.audience = audience;
         clone.build = context;
         return clone;
     }
 
-    RSAPublicKey publicKey() {
-        return (RSAPublicKey) kp.getPublic();
+    PublicKey publicKey() {
+        return kp.getPublic();
     }
 
     /**
