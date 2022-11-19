@@ -141,9 +141,6 @@ public class IdTokenCredentialsTest {
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
             IdTokenConfiguration cfg = IdTokenConfiguration.get();
             cfg.setTokenLifetime(60);
-            cfg.setClaimTemplates(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType())));
-            cfg.setGlobalClaimTemplates(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType())));
-            cfg.setBuildClaimTemplates(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType())));
             String idToken = c.getSecret().getPlainText();
             System.out.println(idToken);
             Claims claims = Jwts.parserBuilder().
@@ -152,7 +149,7 @@ public class IdTokenCredentialsTest {
                 parseClaimsJws(idToken).
                 getBody();
 
-            assertTrue(new Date().toInstant().plus(61, ChronoUnit.SECONDS).isAfter(claims.getExpiration().toInstant()));
+            assertTrue(Instant.now().plus(61, ChronoUnit.SECONDS).isAfter(claims.getExpiration().toInstant()));
         });
     }
 
