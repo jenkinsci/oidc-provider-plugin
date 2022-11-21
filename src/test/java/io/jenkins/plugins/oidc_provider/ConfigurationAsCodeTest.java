@@ -59,7 +59,7 @@ public class ConfigurationAsCodeTest {
     @ConfiguredWithCode("global.yaml")
     @Test public void globalConfiguration() throws Exception {
         IdTokenConfiguration cfg = IdTokenConfiguration.get();
-        assertEquals(Integer.valueOf(60), cfg.getTokenLifetime());
+        assertEquals(60, cfg.getTokenLifetime());
         assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType()))),
             ClaimTemplate.xmlForm(cfg.getClaimTemplates()));
         assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType()))),
