@@ -51,6 +51,7 @@ import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Base64;
@@ -181,11 +182,12 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
     )));
 
     protected final @NonNull String token() {
+        IdTokenConfiguration cfg = IdTokenConfiguration.get();
         JwtBuilder builder = Jwts.builder().
             setHeaderParam("kid", getId()).
             setIssuer(issuer != null ? issuer : findIssuer().url()).
             setAudience(audience).
-            setExpiration(Date.from(new Date().toInstant().plus(1, ChronoUnit.HOURS))).
+            setExpiration(Date.from(Instant.now().plus(cfg.getTokenLifetime(), ChronoUnit.SECONDS))).
             setIssuedAt(new Date());
         Map<String, String> env;
         if (build != null) {
@@ -198,7 +200,6 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             // EnvVars.masterEnvVars might not be safe to expose
             env = Collections.singletonMap("JENKINS_URL", Jenkins.get().getRootUrl());
         }
-        IdTokenConfiguration cfg = IdTokenConfiguration.get();
         AtomicBoolean definedSub = new AtomicBoolean();
         Consumer<List<ClaimTemplate>> addClaims = claimTemplates -> {
             for (ClaimTemplate t : claimTemplates) {

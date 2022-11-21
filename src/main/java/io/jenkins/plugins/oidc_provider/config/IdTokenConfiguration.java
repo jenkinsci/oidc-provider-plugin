@@ -57,6 +57,8 @@ import org.kohsuke.stapler.StaplerRequest;
         return ExtensionList.lookupSingleton(IdTokenConfiguration.class);
     }
 
+    private int tokenLifetime = 3600;
+
     private @CheckForNull List<ClaimTemplate> claimTemplates;
     private @CheckForNull List<ClaimTemplate> buildClaimTemplates;
     private @CheckForNull List<ClaimTemplate> globalClaimTemplates;
@@ -78,6 +80,14 @@ import org.kohsuke.stapler.StaplerRequest;
         } else {
             return new ArrayList<>(claimTemplates);
         }
+    }
+
+    public int getTokenLifetime() {
+        return tokenLifetime;
+    }
+
+    @DataBoundSetter public void setTokenLifetime(final int lifetime) {
+        this.tokenLifetime = lifetime;
     }
 
     public @NonNull List<ClaimTemplate> getClaimTemplates() {

@@ -40,6 +40,8 @@ import io.jenkins.plugins.oidc_provider.config.StringClaimType;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -129,6 +131,24 @@ public class IdTokenCredentialsTest {
             assertThat(wc.goTo(folderDescriptorUrl + "wellKnownOpenidConfiguration?issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"jwks_uri\":\"https://xxx/jwks\""));
             assertThat(wc.goTo(descriptorUrl + "jwks?id=ext1&issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"kid\":\"ext1\""));
             assertThat(wc.goTo(folderDescriptorUrl + "jwks?id=ext2&issuer=https://xxx", "application/json").getWebResponse().getContentAsString(), containsString("\"kid\":\"ext2\""));
+        });
+    }
+
+    @Test public void tokenLifetime() throws Throwable {
+        rr.then(r -> {
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            IdTokenConfiguration cfg = IdTokenConfiguration.get();
+            cfg.setTokenLifetime(60);
+            String idToken = c.getSecret().getPlainText();
+            System.out.println(idToken);
+            Claims claims = Jwts.parserBuilder().
+                setSigningKey(c.publicKey()).
+                build().
+                parseClaimsJws(idToken).
+                getBody();
+
+            assertTrue(Instant.now().plus(61, ChronoUnit.SECONDS).isAfter(claims.getExpiration().toInstant()));
         });
     }
 
