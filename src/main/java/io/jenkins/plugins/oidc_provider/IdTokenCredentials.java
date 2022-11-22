@@ -165,20 +165,23 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
         this.audience = Util.fixEmpty(audience);
     }
 
-    public void setAlgorithm(SupportedKeyAlgorithm algorithm) {
+    public boolean updateAlgorithm(SupportedKeyAlgorithm algorithm) throws Exception {
         Objects.requireNonNull(algorithm);
 
-        boolean shouldRotate= this.algorithm == algorithm;
+        boolean shouldRotate= this.algorithm != algorithm;
 
         this.algorithm = algorithm;
 
         if(shouldRotate) {
             rotateKeyPair();
         }
+
+        return shouldRotate;
     }
 
-    private void rotateKeyPair() {
+    private void rotateKeyPair() throws Exception {
         this.secretKeyPair = SecretKeyPair.forAlgorithm(algorithm);
+        this.kp = this.secretKeyPair.toKeyPair();
     }
 
     @NonNull public SupportedKeyAlgorithm getAlgorithm() {

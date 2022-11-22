@@ -40,11 +40,11 @@ public final class IdTokenStringCredentials extends IdTokenCredentials implement
 
     private static final long serialVersionUID = 1;
 
-    @DataBoundConstructor public IdTokenStringCredentials(CredentialsScope scope, String id, String description, SupportedKeyAlgorithm algorithm) {
+    public IdTokenStringCredentials(CredentialsScope scope, String id, String description, SupportedKeyAlgorithm algorithm) {
         super(scope, id, description, algorithm);
     }
 
-    public IdTokenStringCredentials(CredentialsScope scope, String id, String description) {
+    @DataBoundConstructor public IdTokenStringCredentials(CredentialsScope scope, String id, String description) {
         super(scope, id, description);
     }
 

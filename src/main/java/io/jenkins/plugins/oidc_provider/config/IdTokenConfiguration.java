@@ -24,8 +24,11 @@
 
 package io.jenkins.plugins.oidc_provider.config;
 
+import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
+import com.cloudbees.plugins.credentials.domains.Domain;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -36,6 +39,7 @@ import io.jenkins.plugins.oidc_provider.IdTokenCredentials;
 import io.jenkins.plugins.oidc_provider.IdTokenStringCredentials;
 import io.jenkins.plugins.oidc_provider.Keys.SupportedKeyAlgorithm;
 import io.jsonwebtoken.Claims;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -155,6 +159,25 @@ import org.kohsuke.stapler.StaplerRequest;
         boolean result =  super.configure(req, json);
 
         // TODO update all credentials once the algorithm has changed
+        for (CredentialsStore store : CredentialsProvider.lookupStores(Jenkins.get())) {
+            for (Domain domain : store.getDomains()) {
+                for (Credentials credentials : store.getCredentials(domain)) {
+                    if(!(credentials instanceof IdTokenCredentials)) {
+                       continue;
+                    }
+
+                    try {
+                        boolean updated = ((IdTokenCredentials) credentials).updateAlgorithm(algorithm);
+
+                        if(updated) {
+                            store.updateCredentials(domain, credentials, credentials);
+                        }
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }
 
         return result;
     }
