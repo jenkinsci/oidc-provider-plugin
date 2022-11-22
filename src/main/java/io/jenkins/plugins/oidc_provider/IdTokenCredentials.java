@@ -76,7 +76,7 @@ import org.kohsuke.stapler.StaplerRequest;
 
 public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
-    private static final Logger LOGGER = Logger.getLogger(Keys.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(IdTokenCredentials.class.getName());
 
     private static final long serialVersionUID = 1;
 
@@ -215,7 +215,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                 }
                 if (t.getRequiredEnvVars() == null || env.keySet().containsAll(Arrays.asList(t.getRequiredEnvVars().split("\\s*\\s")))) {
                     if (definedClaims.containsKey(t.name)) {
-                        LOGGER.fine(() -> "declining to set claim: " + t.name + " as it has already been set.");
+                        LOGGER.fine(() -> "declining to set claim: " + t.name + " with format: " + t.format + " as it has already been set.");
                     } else {
                         LOGGER.fine(() -> "setting claim: " + t.name + " with format: " + t.format);
                         builder.claim(t.name, t.type.parse(Util.replaceMacro(t.format, env)));
