@@ -156,30 +156,7 @@ import org.kohsuke.stapler.StaplerRequest;
         globalClaimTemplates = null;
         algorithm = null;
 
-        boolean result =  super.configure(req, json);
-
-        // TODO update all credentials once the algorithm has changed
-        for (CredentialsStore store : CredentialsProvider.lookupStores(Jenkins.get())) {
-            for (Domain domain : store.getDomains()) {
-                for (Credentials credentials : store.getCredentials(domain)) {
-                    if(!(credentials instanceof IdTokenCredentials)) {
-                       continue;
-                    }
-
-                    try {
-                        boolean updated = ((IdTokenCredentials) credentials).updateAlgorithm(algorithm);
-
-                        if(updated) {
-                            store.updateCredentials(domain, credentials, credentials);
-                        }
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            }
-        }
-
-        return result;
+        return super.configure(req, json);
     }
 
 }
