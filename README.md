@@ -191,6 +191,67 @@ whether or not the pool is in use.
 (Your access log will show the user agent as `google-thirdparty-credentials`.)
 GCP seems to tolerate any TLS certificate that can validate against a root chain.
 
+### Accessing HashiCorp Vault
+
+You will enable and configure `jwt` authentication and use a role for a specific pipeline job.
+This way access to required secrets can be granted on a job level.
+The pipeline will exchange the JWT against a Vault token and then use that token to access a secret.
+In this example the ID token (JWT) credential will be created in a folder.
+
+Assume there is a kv v2 secret `my-secret` with the secret engine mounted at `kv` and a policy
+`my-policy` granting read capability to this secret.
+
+In Jenkins, in folder `oidc-folder`, create an `OpenID Connect id token` credential with ID `id-token`.
+Copy the `Issuer URI`.
+
+In the same folder, create a pipeline job `oidc-job`:
+
+```groovy
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+        apiVersion: v1
+        kind: Pod
+        spec:
+          containers:
+          - name: vault
+            image: hashicorp/vault
+            command:
+            - cat
+            tty: true
+      '''
+    }
+  }
+
+  stages {
+    stage('vault') {
+      environment {
+        VAULT_ADDR="<Vault API server address>"
+        VAULT_NAMESPACE="<only for Vault Enterprise / HCP, remove otherwise>"
+      }
+      steps {
+        withCredentials([string(credentialsId: 'id-token', variable: 'IDTOKEN')]) {
+          container('vault') {
+            sh 'vault write -field=token auth/jwt/login jwt=${IDTOKEN} > token'
+            sh 'set +x ; VAULT_TOKEN=$(cat token) vault read -field=data -format=json kv/data/my-secret'
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Configure Vault:
+```bash
+vault auth enable jwt
+vault write auth/jwt/role/my-role name=my-role role_type=jwt policies=my-policy \
+    bound_subject="https://jenkins/job/oidc-folder/job/oidc-job/" user_claim=sub
+vault write auth/jwt/config oidc_discovery_url="<Issuer URI>" \
+    bound_issuer="<Issuer URI>" default_role=my-role
+```
+
 ## References
 
 Some relevant background reading. Not intended to be exhaustive.
