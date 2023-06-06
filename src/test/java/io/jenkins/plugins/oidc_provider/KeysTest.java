@@ -30,7 +30,7 @@ import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.cloudbees.plugins.credentials.domains.Domain;
-import com.gargoylesoftware.htmlunit.Page;
+import org.htmlunit.Page;
 import hudson.ExtensionList;
 import hudson.model.ItemGroup;
 import hudson.model.ModelObject;
