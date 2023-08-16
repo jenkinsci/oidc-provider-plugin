@@ -83,6 +83,7 @@ public class IdTokenCredentialsTest {
             assertThat("private key retained by serialization", creds.get(0).publicKey().getModulus(), is(modulus.get()));
             HtmlForm form = r.createWebClient().goTo("credentials/store/system/domain/_/credential/test/update").getFormByName("update");
             form.getInputByName("_.description").setValue("my creds");
+            form.getInputByName("_.rotate").setChecked(true);
             r.submit(form);
             creds = CredentialsProvider.lookupCredentials(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             assertThat(creds, hasSize(1));
