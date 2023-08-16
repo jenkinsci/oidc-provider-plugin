@@ -26,12 +26,16 @@ package io.jenkins.plugins.oidc_provider;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import hudson.Extension;
+import hudson.model.ModelObject;
 import hudson.util.Secret;
+import jenkins.model.Jenkins;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
+
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.plaincredentials.FileCredentials;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -42,13 +46,14 @@ import org.kohsuke.stapler.DataBoundConstructor;
 public final class IdTokenFileCredentials extends IdTokenCredentials implements FileCredentials {
 
     private static final long serialVersionUID = 1;
-
-    @DataBoundConstructor public IdTokenFileCredentials(CredentialsScope scope, String id, String description) {
-        super(scope, id, description);
+    @DataBoundConstructor public IdTokenFileCredentials(CredentialsScope scope, String id, String description, String rotate) {
+        
+        super(scope, id, description, rotate);
     }
 
-    private IdTokenFileCredentials(CredentialsScope scope, String id, String description, KeyPair kp, Secret privateKey) {
-        super(scope, id, description, kp, privateKey);
+    private IdTokenFileCredentials(CredentialsScope scope, String id, String description, KeyPair kp, Secret privateKey, String rotate) {
+        super(scope, id, description, kp, privateKey, rotate);
+
     }
 
     @Override public String getFileName() {
@@ -60,7 +65,7 @@ public final class IdTokenFileCredentials extends IdTokenCredentials implements 
     }
 
     @Override protected IdTokenCredentials clone(KeyPair kp, Secret privateKey) {
-        return new IdTokenFileCredentials(getScope(), getId(), getDescription(), kp, privateKey);
+        return new IdTokenFileCredentials(getScope(), getId(), getDescription(), kp, privateKey, "TRUE");
     }
 
     @Symbol("idTokenFile")
@@ -69,7 +74,9 @@ public final class IdTokenFileCredentials extends IdTokenCredentials implements 
         @Override public String getDisplayName() {
             return "OpenID Connect id token as file";
         }
-
     }
 
+    @Override protected ModelObject context() {
+        return Jenkins.get();
+    }
 }

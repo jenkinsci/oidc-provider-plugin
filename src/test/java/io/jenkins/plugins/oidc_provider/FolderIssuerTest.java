@@ -60,9 +60,9 @@ public class FolderIssuerTest {
     @Rule public LoggerRule logging = new LoggerRule().recordPackage(FolderIssuer.class, Level.FINE);
 
     @Test public void folderEndpoint() throws Exception {
-        CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null));
+        CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null, "TRUE"));
         Folder middle = r.jenkins.createProject(Folder.class, "top").createProject(Folder.class, "middle");
-        CredentialsProvider.lookupStores(middle).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "team", null));
+        CredentialsProvider.lookupStores(middle).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "team", null, "TRUE"));
         middle.createProject(Folder.class, "bottom");
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
         r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().grant(Jenkins.ADMINISTER).everywhere().toAuthenticated());
@@ -83,13 +83,13 @@ public class FolderIssuerTest {
     }
 
     @Test public void build() throws Exception {
-        IdTokenStringCredentials global = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null);
+        IdTokenStringCredentials global = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null, "TRUE");
         global.setAudience("https://global/");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), global);
         Folder top = r.jenkins.createProject(Folder.class, "top");
-        CredentialsProvider.lookupStores(top).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "team", null)); // overridden, ignored
+        CredentialsProvider.lookupStores(top).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "team", null, "TRUE")); // overridden, ignored
         Folder middle = top.createProject(Folder.class, "middle");
-        IdTokenStringCredentials team = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "team", null);
+        IdTokenStringCredentials team = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "team", null, "TRUE");
         team.setAudience("https://local/");
         CredentialsProvider.lookupStores(middle).iterator().next().addCredentials(Domain.global(), team);
         Folder bottom = middle.createProject(Folder.class, "bottom");

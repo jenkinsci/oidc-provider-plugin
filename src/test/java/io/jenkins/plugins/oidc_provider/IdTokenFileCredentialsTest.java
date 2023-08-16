@@ -48,7 +48,7 @@ public class IdTokenFileCredentialsTest {
     @Rule public JenkinsRule r = new JenkinsRule();
 
     @Test public void smokes() throws Exception {
-        IdTokenFileCredentials c = new IdTokenFileCredentials(CredentialsScope.GLOBAL, "test", null);
+        IdTokenFileCredentials c = new IdTokenFileCredentials(CredentialsScope.GLOBAL, "test", null, "TRUE");
         c.setAudience("https://service/");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
         r.createSlave("remote", null, null);
@@ -75,7 +75,7 @@ public class IdTokenFileCredentialsTest {
     }
 
     @Test public void declarative() throws Exception {
-        IdTokenFileCredentials c = new IdTokenFileCredentials(CredentialsScope.GLOBAL, "test", null);
+        IdTokenFileCredentials c = new IdTokenFileCredentials(CredentialsScope.GLOBAL, "test", null, "TRUE");
         c.setAudience("https://service/");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
         DumbSlave s = r.createSlave("remote", null, null);

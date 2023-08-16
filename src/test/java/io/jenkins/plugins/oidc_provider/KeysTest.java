@@ -63,8 +63,8 @@ public class KeysTest {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
         r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().grant(Jenkins.ADMINISTER).everywhere().toAuthenticated());
         CredentialsStore store = CredentialsProvider.lookupStores(r.jenkins).iterator().next();
-        store.addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null));
-        IdTokenStringCredentials alt = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "alt", null);
+        store.addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null, "TRUE"));
+        IdTokenStringCredentials alt = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "alt", null, "TRUE");
         alt.setIssuer("https://elsewhere");
         store.addCredentials(Domain.global(), alt);
         JSONObject config = r.getJSON("oidc/.well-known/openid-configuration").getJSONObject();
@@ -88,7 +88,7 @@ public class KeysTest {
     @Issue("https://github.com/jenkinsci/oidc-provider-plugin/issues/21")
     @Test public void extraCredentialsProvider() throws Exception {
         assertThat(ExtensionList.lookup(CredentialsProvider.class).get(0), instanceOf(ExtraProvider.class));
-        SystemCredentialsProvider.getInstance().getDomainCredentialsMap().get(Domain.global()).add(new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null));
+        SystemCredentialsProvider.getInstance().getDomainCredentialsMap().get(Domain.global()).add(new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null, "TRUE"));
         JSONObject config = r.getJSON("oidc/.well-known/openid-configuration").getJSONObject();
         System.err.println(config.toString(2));
         assertEquals(r.getURL() + "oidc", config.getString("issuer"));
