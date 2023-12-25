@@ -34,4 +34,10 @@ THE SOFTWARE.
     <f:entry field="type" title="${%Value type}">
         <f:dropdownDescriptorSelector field="type" default="${descriptor.defaultType}"/>
     </f:entry>
+    <f:entry field="pattern" title="${%Value pattern}">
+        <f:textbox/>
+    </f:entry>
+    <f:entry field="replacement" title="${%Value replacement}">
+        <f:textbox/>
+    </f:entry>
 </j:jelly>
