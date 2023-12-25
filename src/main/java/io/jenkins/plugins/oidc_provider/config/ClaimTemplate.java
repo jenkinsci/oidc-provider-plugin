@@ -57,16 +57,8 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
         this.name = name;
         this.format = format;
         this.type = type;
-        if (pattern != null) {
-            this.pattern = pattern;
-        } else {
-            this.pattern = this.DEFAULT_PATTERN;
-        }
-        if (replacement != null) {
-            this.replacement = replacement;
-        } else {
-            this.replacement = this.DEFAULT_REPLACEMENT;
-        }
+        this.pattern = Objects.requireNonNullElse(pattern, this.DEFAULT_PATTERN);
+        this.replacement = Objects.requireNonNullElse(replacement, this.DEFAULT_REPLACEMENT);
     }
 
     @Restricted(NoExternalUse.class)
