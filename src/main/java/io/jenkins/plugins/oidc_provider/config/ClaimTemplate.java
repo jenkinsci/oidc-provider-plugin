@@ -48,18 +48,24 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
     public final @NonNull String name;
     public final @NonNull String format;
     public final @NonNull ClaimType type;
-    public @NonNull Pattern pattern = Pattern.compile("(.*)");
-    public @NonNull String replacement = "$1";
+    public final @NonNull String pattern;
+    public final @NonNull String replacement;
+    public final @NonNull String DEFAULT_PATTERN="(.*)";
+    public final @NonNull String DEFAULT_REPLACEMENT="$1";
 
     @DataBoundConstructor public ClaimTemplate(String name, String format, ClaimType type, String pattern, String replacement) {
         this.name = name;
         this.format = format;
         this.type = type;
         if (pattern != null) {
-            this.pattern = Pattern.compile(pattern);
+            this.pattern = pattern;
+        } else {
+            this.pattern = this.DEFAULT_PATTERN;
         }
         if (replacement != null) {
             this.replacement = replacement;
+        } else {
+            this.replacement = this.DEFAULT_REPLACEMENT;
         }
     }
 
@@ -94,7 +100,8 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
     @NonNull
     public String render(Map<String, String> env) {
         String raw = Util.replaceMacro(this.format, env);
-        final Matcher matcher = this.pattern.matcher(Objects.requireNonNull(raw));
+        Pattern pattern = Pattern.compile(this.pattern);
+        final Matcher matcher = pattern.matcher(Objects.requireNonNull(raw));
         return matcher.replaceAll(this.replacement);
     }
 }
