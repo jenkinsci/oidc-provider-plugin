@@ -197,7 +197,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                 throw new RuntimeException(x);
             }
         } else {
-            // EnvVars.masterEnvVars might not be safe to expose
+            // EnvVars.masterEnvVars mright not be safe to expose
             env = Collections.singletonMap("JENKINS_URL", Jenkins.get().getRootUrl());
         }
         AtomicBoolean definedSub = new AtomicBoolean();
@@ -208,7 +208,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                 } else if (t.name.equals(Claims.SUBJECT)) {
                     definedSub.set(true);
                 }
-                builder.claim(t.name, t.type.parse(Util.replaceMacro(t.format, env)));
+                builder.claim(t.name, t.type.parse(t.Render(env)));
             }
         };
         addClaims.accept(cfg.getClaimTemplates());
