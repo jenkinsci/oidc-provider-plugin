@@ -92,7 +92,7 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
     }
 
     @NonNull
-    public String Render(Map<String, String> env) {
+    public String render(Map<String, String> env) {
         String raw = Util.replaceMacro(this.format, env);
         final Matcher matcher = this.pattern.matcher(Objects.requireNonNull(raw));
         return matcher.replaceAll(this.replacement);
