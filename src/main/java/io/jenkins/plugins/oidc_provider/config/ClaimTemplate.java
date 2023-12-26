@@ -50,8 +50,8 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
     public final @NonNull ClaimType type;
     public final @NonNull String pattern;
     public final @NonNull String replacement;
-    public static final @NonNull String DEFAULT_PATTERN="(.*)";
-    public static final @NonNull String DEFAULT_REPLACEMENT="$1";
+    public static final @NonNull String DEFAULT_PATTERN="";
+    public static final @NonNull String DEFAULT_REPLACEMENT="";
 
     @DataBoundConstructor public ClaimTemplate(String name, String format, ClaimType type, String pattern, String replacement) {
         this.name = name;
