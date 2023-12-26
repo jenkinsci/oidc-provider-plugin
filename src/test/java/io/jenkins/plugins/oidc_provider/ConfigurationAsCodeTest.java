@@ -60,11 +60,11 @@ public class ConfigurationAsCodeTest {
     @Test public void globalConfiguration() throws Exception {
         IdTokenConfiguration cfg = IdTokenConfiguration.get();
         assertEquals(60, cfg.getTokenLifetime());
-        assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType(), null, null))),
+        assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType(), "", ""))),
             ClaimTemplate.xmlForm(cfg.getClaimTemplates()));
-        assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType(), null, null))),
+        assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType(), "", ""))),
             ClaimTemplate.xmlForm(cfg.getGlobalClaimTemplates()));
-        assertEquals(ClaimTemplate.xmlForm(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType(), null, null), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType(), null, null))),
+        assertEquals(ClaimTemplate.xmlForm(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType(), "", ""), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType(), "", ""))),
             ClaimTemplate.xmlForm(cfg.getBuildClaimTemplates()));
     }
 
