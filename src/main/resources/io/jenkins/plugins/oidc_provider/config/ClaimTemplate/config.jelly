@@ -35,9 +35,9 @@ THE SOFTWARE.
         <f:dropdownDescriptorSelector field="type" default="${descriptor.defaultType}"/>
     </f:entry>
     <f:entry field="pattern" title="${%Value pattern}">
-        <f:textbox default="${descriptor.DEFAULT_PATTERN}"/>
+        <f:textbox/>
     </f:entry>
     <f:entry field="replacement" title="${%Value replacement}">
-        <f:textbox default="${descriptor.DEFAULT_REPLACEMENT}"/>
+        <f:textbox/>
     </f:entry>
 </j:jelly>

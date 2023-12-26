@@ -57,8 +57,8 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
         this.name = name;
         this.format = format;
         this.type = type;
-        this.pattern = Objects.requireNonNullElse(pattern, this.DEFAULT_PATTERN);
-        this.replacement = Objects.requireNonNullElse(replacement, this.DEFAULT_REPLACEMENT);
+        this.pattern = Objects.requireNonNullElse(pattern, DEFAULT_PATTERN);
+        this.replacement = Objects.requireNonNullElse(replacement, DEFAULT_REPLACEMENT);
     }
 
     @Restricted(NoExternalUse.class)
@@ -92,8 +92,12 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
     @NonNull
     public String render(Map<String, String> env) {
         String raw = Util.replaceMacro(this.format, env);
+        raw = Objects.requireNonNull(raw);
+        if (this.pattern.isEmpty()) {
+            return raw;
+        }
         Pattern pattern = Pattern.compile(this.pattern);
-        final Matcher matcher = pattern.matcher(Objects.requireNonNull(raw));
+        final Matcher matcher = pattern.matcher(raw);
         return matcher.replaceAll(this.replacement);
     }
 }
