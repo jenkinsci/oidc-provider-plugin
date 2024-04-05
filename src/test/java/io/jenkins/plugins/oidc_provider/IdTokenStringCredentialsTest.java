@@ -47,7 +47,7 @@ public class IdTokenStringCredentialsTest {
     @Rule public JenkinsRule r = new JenkinsRule();
 
     @Test public void smokes() throws Exception {
-        IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+        IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null, "TRUE");
         c.setAudience("https://service/");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
@@ -72,7 +72,7 @@ public class IdTokenStringCredentialsTest {
     }
 
     @Test public void declarative() throws Exception {
-        IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+        IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null, "TRUE");
         c.setAudience("https://service/");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
@@ -101,7 +101,7 @@ public class IdTokenStringCredentialsTest {
     }
 
     @Test public void alternateIssuer() throws Exception {
-        IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+        IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null, "TRUE");
         c.setIssuer("https://some.issuer");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");

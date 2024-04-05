@@ -68,7 +68,7 @@ public class IdTokenCredentialsTest {
     @Test public void persistence() throws Throwable {
         AtomicReference<BigInteger> modulus = new AtomicReference<>();
         rr.then(r -> {
-            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null, "FALSE");
             c.setIssuer("https://issuer");
             c.setAudience("https://audience");
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
@@ -83,6 +83,7 @@ public class IdTokenCredentialsTest {
             assertThat("private key retained by serialization", creds.get(0).publicKey().getModulus(), is(modulus.get()));
             HtmlForm form = r.createWebClient().goTo("credentials/store/system/domain/_/credential/test/update").getFormByName("update");
             form.getInputByName("_.description").setValue("my creds");
+            form.getInputByName("_.rotate").setChecked(true);
             r.submit(form);
             creds = CredentialsProvider.lookupCredentials(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             assertThat(creds, hasSize(1));
@@ -100,11 +101,11 @@ public class IdTokenCredentialsTest {
 
     @Test public void checkIssuer() throws Throwable {
         rr.then(r -> {
-            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext1", null);
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext1", null, "FALSE");
             c.setIssuer("https://xxx");
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
             Folder dir = r.createProject(Folder.class, "dir");
-            c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext2", null);
+            c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext2", null, "FALSE");
             c.setIssuer("https://xxx");
             CredentialsProvider.lookupStores(dir).iterator().next().addCredentials(Domain.global(), c);
             r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
@@ -136,7 +137,7 @@ public class IdTokenCredentialsTest {
 
     @Test public void tokenLifetime() throws Throwable {
         rr.then(r -> {
-            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null, "FALSE");
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
             IdTokenConfiguration cfg = IdTokenConfiguration.get();
             cfg.setTokenLifetime(60);
@@ -154,7 +155,7 @@ public class IdTokenCredentialsTest {
 
     @Test public void customClaims() throws Throwable {
         rr.then(r -> {
-            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null, "FALSE");
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
             IdTokenConfiguration cfg = IdTokenConfiguration.get();
             cfg.setClaimTemplates(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType())));
@@ -192,7 +193,7 @@ public class IdTokenCredentialsTest {
 
     @Test public void invalidCustomClaims() throws Throwable {
         rr.then(r -> {
-            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null));
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null, "FALSE"));
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {echo(/should not get $TOK/)}", true));
             IdTokenConfiguration cfg = IdTokenConfiguration.get();

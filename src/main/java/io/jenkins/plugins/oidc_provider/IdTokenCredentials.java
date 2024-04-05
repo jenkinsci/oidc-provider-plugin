@@ -25,12 +25,16 @@
 package io.jenkins.plugins.oidc_provider;
 
 import com.cloudbees.plugins.credentials.Credentials;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.CredentialsStore;
+import com.cloudbees.plugins.credentials.domains.Domain;
 import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
 import hudson.Util;
+import hudson.model.ModelObject;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
@@ -64,6 +68,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -86,7 +91,8 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
      * Encrypted {@link Base64} encoding of RSA private key in {@link RSAPrivateCrtKey} / {@link PKCS8EncodedKeySpec} format.
      * The public key is inferred from this to reload {@link #kp}.
      */
-    private final Secret privateKey;
+    private Secret privateKey = null;
+
 
     private @CheckForNull String issuer;
 
@@ -94,39 +100,85 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
     private transient @CheckForNull Run<?, ?> build;
 
-    protected IdTokenCredentials(CredentialsScope scope, String id, String description) {
-        this(scope, id, description, generatePrivateKey());
+    protected IdTokenCredentials(CredentialsScope scope, String id, String description, String rotate) {
+
+        this(scope, id, description, generateKeyPair(rotate), rotate);
+    }
+    private static final Logger LOGGER = Logger.getLogger(IdTokenCredentials.class.getName());
+
+    private static KeyPair generateKeyPair(String rotate) {
+            KeyPairGenerator gen;
+            try {
+                gen = KeyPairGenerator.getInstance("RSA");
+            } catch (NoSuchAlgorithmException x) {
+                throw new AssertionError(x);
+            }
+            gen.initialize(2048);
+            return gen.generateKeyPair();
     }
 
-    private static KeyPair generatePrivateKey() {
-        KeyPairGenerator gen;
-        try {
-            gen = KeyPairGenerator.getInstance("RSA");
-        } catch (NoSuchAlgorithmException x) {
-            throw new AssertionError(x);
-        }
-        gen.initialize(2048);
-        return gen.generateKeyPair();
-    }
-
-    private IdTokenCredentials(CredentialsScope scope, String id, String description, KeyPair kp) {
-        this(scope, id, description, kp, serializePrivateKey(kp));
+    private IdTokenCredentials(CredentialsScope scope, String id, String description, KeyPair kp, String rotate) {
+        this(scope, id, description, kp, serializePrivateKey(kp),rotate);
     }
 
     private static Secret serializePrivateKey(KeyPair kp) {
         assert ((RSAPublicKey) kp.getPublic()).getModulus().equals(((RSAPrivateCrtKey) kp.getPrivate()).getModulus());
         return Secret.fromString(Base64.getEncoder().encodeToString(kp.getPrivate().getEncoded()));
     }
-
-    protected IdTokenCredentials(CredentialsScope scope, String id, String description, KeyPair kp, Secret privateKey) {
+    protected abstract @NonNull ModelObject context();
+    protected IdTokenCredentials(CredentialsScope scope, String id, String description, KeyPair kp, Secret newPrivateKey, String rotate) {
         super(scope, id, description);
-        this.kp = kp;
-        this.privateKey = privateKey;
+        Boolean isRotate = Boolean.valueOf(rotate);
+        Secret privateKey;
+        KeyPair keypair = kp;
+        Boolean existed = false;
+        // default to the privateKey passed in constructor
+        privateKey = newPrivateKey;
+        for (CredentialsProvider p : CredentialsProvider.enabled(context())) {
+            CredentialsStore store = p.getStore(context());
+            if (store != null) {
+                for (Credentials c : store.getCredentials(Domain.global())) {
+                    if (c instanceof IdTokenCredentials) {
+                        IdTokenCredentials itc = (IdTokenCredentials) c;
+                        if (itc.getId().equals(id))  {
+                            privateKey = itc.privateKey();
+                            existed = true;
+                            keypair = itc.getKeyPair();
+                        }
+                    }
+                }
+            }
+        }
+        if (existed) {
+            if (!isRotate) {
+                LOGGER.fine("key pair already created, setting key pair to " + keypair.toString());
+                this.privateKey = privateKey;
+                this.kp = keypair;
+                
+            } else {
+                LOGGER.fine("skip rotating");
+                this.privateKey = newPrivateKey;
+                this.kp = kp;
+            }
+        } else {
+                this.privateKey = newPrivateKey;
+                this.kp = kp;
+        }
+       
+    }
+
+    public Secret privateKey() {
+        return  privateKey;
+    }
+    
+    public KeyPair getKeyPair(){
+        return kp;
     }
 
     protected Object readResolve() throws Exception {
         KeyFactory kf = KeyFactory.getInstance("RSA");
         RSAPrivateCrtKey priv = (RSAPrivateCrtKey) kf.generatePrivate(new PKCS8EncodedKeySpec(Base64.getDecoder().decode(privateKey.getPlainText())));
+        LOGGER.fine("in read resolve");
         kp = new KeyPair(kf.generatePublic(new RSAPublicKeySpec(priv.getModulus(), priv.getPublicExponent())), priv);
         return this;
     }
@@ -142,6 +194,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
     public final String getAudience() {
         return audience;
     }
+
 
     @DataBoundSetter public final void setAudience(String audience) {
         this.audience = Util.fixEmpty(audience);
@@ -313,7 +366,6 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             }
             return new JSONObject().accumulate("keys", new JSONArray().element(Keys.key(c)));
         }
-
     }
 
 }
