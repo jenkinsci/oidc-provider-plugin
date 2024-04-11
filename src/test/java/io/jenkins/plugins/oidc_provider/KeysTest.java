@@ -44,6 +44,7 @@ import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertEquals;
 import org.junit.Test;
@@ -87,7 +88,7 @@ public class KeysTest {
 
     @Issue("https://github.com/jenkinsci/oidc-provider-plugin/issues/21")
     @Test public void extraCredentialsProvider() throws Exception {
-        assertThat(ExtensionList.lookup(CredentialsProvider.class).get(0), instanceOf(ExtraProvider.class));
+        assertThat(ExtensionList.lookup(CredentialsProvider.class), hasItem(instanceOf(ExtraProvider.class)));
         SystemCredentialsProvider.getInstance().getDomainCredentialsMap().get(Domain.global()).add(new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null));
         JSONObject config = r.getJSON("oidc/.well-known/openid-configuration").getJSONObject();
         System.err.println(config.toString(2));
