@@ -30,6 +30,9 @@ THE SOFTWARE.
             <f:number clazz="positive-number-required"/>
         </f:entry>
 
+        <f:entry title="Algorithm">
+            <f:select field="algorithm"/>
+        </f:entry>
         <f:advanced title="${%Claim templates}" align="left">
             <f:entry field="claimTemplates" title="${%General claim templates}">
                 <f:repeatableProperty field="claimTemplates">

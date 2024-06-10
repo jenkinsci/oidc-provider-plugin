@@ -26,7 +26,7 @@ package io.jenkins.plugins.oidc_provider;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import hudson.Extension;
-import hudson.util.Secret;
+import io.jenkins.plugins.oidc_provider.Keys.SupportedKeyAlgorithm;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,8 +47,12 @@ public final class IdTokenFileCredentials extends IdTokenCredentials implements 
         super(scope, id, description);
     }
 
-    private IdTokenFileCredentials(CredentialsScope scope, String id, String description, KeyPair kp, Secret privateKey) {
-        super(scope, id, description, kp, privateKey);
+    public IdTokenFileCredentials(CredentialsScope scope, String id, String description, SupportedKeyAlgorithm algorithm) {
+        super(scope, id, description, algorithm);
+    }
+
+    private IdTokenFileCredentials(CredentialsScope scope, String id, String description, KeyPair kp, SupportedKeyAlgorithm algorithm, SecretKeyPair secretKeyPair) {
+        super(scope, id, description, kp, algorithm, secretKeyPair);
     }
 
     @Override public String getFileName() {
@@ -59,8 +63,8 @@ public final class IdTokenFileCredentials extends IdTokenCredentials implements 
         return new ByteArrayInputStream(token().getBytes(StandardCharsets.UTF_8));
     }
 
-    @Override protected IdTokenCredentials clone(KeyPair kp, Secret privateKey) {
-        return new IdTokenFileCredentials(getScope(), getId(), getDescription(), kp, privateKey);
+    @Override protected IdTokenCredentials clone(KeyPair kp, SupportedKeyAlgorithm algorithm, SecretKeyPair secretKeyPair) {
+        return new IdTokenFileCredentials(getScope(), getId(), getDescription(), kp, algorithm, secretKeyPair);
     }
 
     @Symbol("idTokenFile")
