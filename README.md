@@ -125,6 +125,29 @@ and a permissions policy granting specific abilities.
 The audience should conventionally be `sts.amazonaws.com`.
 AWS requires the TLS certificate fingerprint of the issuer to be saved.
 
+Here is an example of such trust policy with account `1234567890` and Jenkins instance running on `https://jenkins.acme.com/`, restricting access to a job named `my-job`:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Federated": "arn:aws:iam::1234567890:oidc-provider/jenkins.acme.com/oidc"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+                "StringEquals": {
+                    "jenkins.acme.com/oidc:aud": "sts.amazonaws.com",
+                    "jenkins.acme.com/oidc:sub": "https://jenkins.acme.com/job/my-job/"
+                }
+            }
+        }
+    ]
+}
+```
+
 If you set the environment variable `AWS_ROLE_ARN`
 and bind `AWS_WEB_IDENTITY_TOKEN_FILE` to a temporary file containing an id token,
 you can run `aws` CLI commands without further ado.
