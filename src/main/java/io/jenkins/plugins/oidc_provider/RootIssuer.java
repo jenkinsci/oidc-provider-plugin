@@ -52,7 +52,7 @@ import org.springframework.security.access.AccessDeniedException;
     }
 
     @Override protected void checkExtendedReadPermission() throws AccessDeniedException {
-        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        Jenkins.get().checkPermission(Jenkins.MANAGE);
     }
 
     @Override public Collection<? extends Issuer> forContext(Run<?, ?> context) {
