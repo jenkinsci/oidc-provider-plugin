@@ -125,7 +125,7 @@ and a permissions policy granting specific abilities.
 The audience should conventionally be `sts.amazonaws.com`.
 AWS requires the TLS certificate fingerprint of the issuer to be saved.
 
-Here is an example of such trust policy with account `1234567890` and Jenkins instance running on `https://jenkins.acme.com/`, restricting access to a job named `my-job`:
+Here is an example of such trust policy with account `1234567890` and Jenkins instance running on `https://jenkins.acme.com/`, using the default issuer URL, restricting access to a job named `my-job`:
 
 ```json
 {
