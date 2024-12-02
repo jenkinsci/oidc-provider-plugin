@@ -61,14 +61,14 @@ public class FolderIssuerTest {
 
     @Test public void folderEndpoint() throws Exception {
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null));
-        Folder middle = r.jenkins.createProject(Folder.class, "top").createProject(Folder.class, "middle");
+        Folder middle = r.jenkins.createProject(Folder.class, "at the top").createProject(Folder.class, "middle");
         CredentialsProvider.lookupStores(middle).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "team", null));
         middle.createProject(Folder.class, "bottom");
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
         r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().grant(Jenkins.ADMINISTER).everywhere().toAuthenticated());
-        JSONObject config = r.getJSON("oidc/job/top/job/middle/.well-known/openid-configuration").getJSONObject();
+        JSONObject config = r.getJSON("oidc/job/at%20the%20top/job/middle/.well-known/openid-configuration").getJSONObject();
         System.err.println(config.toString(2));
-        assertEquals(r.getURL() + "oidc/job/top/job/middle", config.getString("issuer"));
+        assertEquals(r.getURL() + "oidc/job/at%20the%20top/job/middle", config.getString("issuer"));
         JenkinsRule.WebClient wc = r.createWebClient();
         Page p = wc.getPage(new URL(config.getString("jwks_uri")));
         assertEquals("application/json", p.getWebResponse().getContentType());
@@ -78,15 +78,15 @@ public class FolderIssuerTest {
         assertEquals(1, keys.size());
         JSONObject key = keys.getJSONObject(0);
         assertEquals("team", key.getString("kid"));
-        wc.assertFails("oidc/job/top/.well-known/openid-configuration", 404);
-        wc.assertFails("oidc/job/top/job/middle/job/bottom/.well-known/openid-configuration", 404);
+        wc.assertFails("oidc/job/at%20the%20top/.well-known/openid-configuration", 404);
+        wc.assertFails("oidc/job/at%20the%20top/job/middle/job/bottom/.well-known/openid-configuration", 404);
     }
 
     @Test public void build() throws Exception {
         IdTokenStringCredentials global = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null);
         global.setAudience("https://global/");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), global);
-        Folder top = r.jenkins.createProject(Folder.class, "top");
+        Folder top = r.jenkins.createProject(Folder.class, "at the top");
         CredentialsProvider.lookupStores(top).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "team", null)); // overridden, ignored
         Folder middle = top.createProject(Folder.class, "middle");
         IdTokenStringCredentials team = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "team", null);
@@ -100,12 +100,12 @@ public class FolderIssuerTest {
         Claims claims = Jwts.parserBuilder().setSigningKey(global.publicKey()).build().parseClaimsJws(b.getAction(EnvironmentAction.class).getEnvironment().get("RESULT")).getBody();
         System.out.println(claims);
         assertEquals(r.getURL() + "oidc", claims.getIssuer());
-        assertEquals(r.getURL() + "job/top/job/middle/job/bottom/job/p/", claims.getSubject());
+        assertEquals(r.getURL() + "job/at%20the%20top/job/middle/job/bottom/job/p/", claims.getSubject());
         assertEquals("https://global/", claims.getAudience());
         b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("CREDS", "team"))));
         claims = Jwts.parserBuilder().setSigningKey(team.publicKey()).build().parseClaimsJws(b.getAction(EnvironmentAction.class).getEnvironment().get("RESULT")).getBody();
         System.out.println(claims);
-        assertEquals(r.getURL() + "oidc/job/top/job/middle", claims.getIssuer());
+        assertEquals(r.getURL() + "oidc/job/at%20the%20top/job/middle", claims.getIssuer());
         assertEquals(p.getAbsoluteUrl(), claims.getSubject());
         assertEquals("https://local/", claims.getAudience());
     }
