@@ -57,7 +57,7 @@ import org.kohsuke.stapler.StaplerRequest;
     }
 
     public JSONObject doDynamic(StaplerRequest req) {
-        String path = req.getRestOfPath();
+        String path = req.getOriginalRestOfPath();
         try (ACLContext context = ACL.as2(ACL.SYSTEM2)) { // both forUri and credentials might check permissions
             Issuer i = findIssuer(path, WELL_KNOWN_OPENID_CONFIGURATION);
             if (i != null) {

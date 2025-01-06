@@ -25,14 +25,18 @@
 package io.jenkins.plugins.oidc_provider;
 
 import hudson.Extension;
+import hudson.Util;
 import hudson.model.AbstractItem;
 import hudson.model.Item;
 import hudson.model.ItemGroup;
 import hudson.model.ModelObject;
 import hudson.model.Run;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.StaplerRequest;
 import org.springframework.security.access.AccessDeniedException;
@@ -58,7 +62,7 @@ public final class FolderIssuer extends Issuer {
      * (In practice there are no overrides of the latter whose children could be folders.)
      */
     @Override protected String uri() {
-        return "/job/" + folder.getFullName().replace("/", "/job/");
+        return Stream.of(folder.getFullName().split("/")).map(Util::rawEncode).collect(Collectors.joining("/job/", "/job/", ""));
     }
 
     @Override protected void checkExtendedReadPermission() throws AccessDeniedException {
@@ -69,7 +73,7 @@ public final class FolderIssuer extends Issuer {
 
         @Override public Issuer forUri(String uri) {
             if (uri.matches("(/job/[^/]+)+")) {
-                Item folder = Jenkins.get().getItemByFullName(uri.substring(5).replace("/job/", "/"));
+                Item folder = Jenkins.get().getItemByFullName(URI.create(uri.substring(5).replace("/job/", "/")).getPath());
                 if (folder instanceof ItemGroup) {
                     return new FolderIssuer((ItemGroup<?>) folder);
                 }
