@@ -24,8 +24,15 @@
 
 package io.jenkins.plugins.oidc_provider;
 
-import io.jenkins.plugins.oidc_provider.config.IdTokenConfiguration;
-import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import com.cloudbees.hudson.plugins.folder.Folder;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
@@ -34,12 +41,16 @@ import org.htmlunit.html.HtmlAnchor;
 import org.htmlunit.html.HtmlForm;
 import org.htmlunit.html.HtmlPage;
 import hudson.model.Result;
+import io.jenkins.plugins.oidc_provider.Keys.SupportedKeyAlgorithm;
 import io.jenkins.plugins.oidc_provider.config.BooleanClaimType;
+import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
+import io.jenkins.plugins.oidc_provider.config.IdTokenConfiguration;
 import io.jenkins.plugins.oidc_provider.config.IntegerClaimType;
 import io.jenkins.plugins.oidc_provider.config.StringClaimType;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import java.math.BigInteger;
+import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
@@ -47,16 +58,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import jenkins.model.Jenkins;
-import org.junit.Test;
-import static org.hamcrest.Matchers.*;
-import static org.hamcrest.MatcherAssert.assertThat;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import org.junit.Rule;
+import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.JenkinsSessionRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
@@ -68,11 +75,12 @@ public class IdTokenCredentialsTest {
     @Test public void persistence() throws Throwable {
         AtomicReference<BigInteger> modulus = new AtomicReference<>();
         rr.then(r -> {
-            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null,
+                SupportedKeyAlgorithm.RS256);
             c.setIssuer("https://issuer");
             c.setAudience("https://audience");
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
-            modulus.set(c.publicKey().getModulus());
+            modulus.set(((RSAPublicKey)c.publicKey()).getModulus());
         });
         rr.then(r -> {
             List<IdTokenStringCredentials> creds = CredentialsProvider.lookupCredentials(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
@@ -80,14 +88,14 @@ public class IdTokenCredentialsTest {
             assertThat(creds.get(0).getId(), is("test"));
             assertThat(creds.get(0).getIssuer(), is("https://issuer"));
             assertThat(creds.get(0).getAudience(), is("https://audience"));
-            assertThat("private key retained by serialization", creds.get(0).publicKey().getModulus(), is(modulus.get()));
+            assertThat("private key retained by serialization", ((RSAPublicKey)creds.get(0).publicKey()).getModulus(), is(modulus.get()));
             HtmlForm form = r.createWebClient().goTo("credentials/store/system/domain/_/credential/test/update").getFormByName("update");
             form.getInputByName("_.description").setValue("my creds");
             r.submit(form);
             creds = CredentialsProvider.lookupCredentials(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             assertThat(creds, hasSize(1));
             assertThat(creds.get(0).getDescription(), is("my creds"));
-            assertThat("private key rotated by resaving", creds.get(0).publicKey().getModulus(), is(not(modulus.get())));
+            assertThat("private key rotated by resaving", ((RSAPublicKey)creds.get(0).publicKey()).getModulus(), is(not(modulus.get())));
             creds.get(0).setIssuer(null);
             creds.get(0).setAudience(null);
             r.submit(r.createWebClient().goTo("credentials/store/system/domain/_/credential/test/update").getFormByName("update"));
@@ -100,11 +108,11 @@ public class IdTokenCredentialsTest {
 
     @Test public void checkIssuer() throws Throwable {
         rr.then(r -> {
-            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext1", null);
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext1", null, SupportedKeyAlgorithm.RS256);
             c.setIssuer("https://xxx");
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
             Folder dir = r.createProject(Folder.class, "dir");
-            c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext2", null);
+            c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext2", null, SupportedKeyAlgorithm.RS256);
             c.setIssuer("https://xxx");
             CredentialsProvider.lookupStores(dir).iterator().next().addCredentials(Domain.global(), c);
             r.jenkins.setSecurityRealm(r.createDummySecurityRealm());

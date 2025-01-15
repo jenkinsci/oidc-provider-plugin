@@ -27,6 +27,7 @@ package io.jenkins.plugins.oidc_provider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import hudson.Extension;
 import hudson.util.Secret;
+import io.jenkins.plugins.oidc_provider.Keys.SupportedKeyAlgorithm;
 import java.security.KeyPair;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
@@ -39,20 +40,24 @@ public final class IdTokenStringCredentials extends IdTokenCredentials implement
 
     private static final long serialVersionUID = 1;
 
+    public IdTokenStringCredentials(CredentialsScope scope, String id, String description, SupportedKeyAlgorithm algorithm) {
+        super(scope, id, description, algorithm);
+    }
+
     @DataBoundConstructor public IdTokenStringCredentials(CredentialsScope scope, String id, String description) {
         super(scope, id, description);
     }
 
-    private IdTokenStringCredentials(CredentialsScope scope, String id, String description, KeyPair kp, Secret privateKey) {
-        super(scope, id, description, kp, privateKey);
+    private IdTokenStringCredentials(CredentialsScope scope, String id, String description, KeyPair kp,  SupportedKeyAlgorithm algorithm, SecretKeyPair secretKeyPair) {
+        super(scope, id, description, kp,  algorithm, secretKeyPair);
     }
 
     @Override public Secret getSecret() {
         return Secret.fromString(token());
     }
 
-    @Override protected IdTokenCredentials clone(KeyPair kp, Secret privateKey) {
-        return new IdTokenStringCredentials(getScope(), getId(), getDescription(), kp, privateKey);
+    @Override protected IdTokenCredentials clone(KeyPair kp, SupportedKeyAlgorithm algorithm, SecretKeyPair secretKeyPair) {
+        return new IdTokenStringCredentials(getScope(), getId(), getDescription(), kp, algorithm, secretKeyPair);
     }
 
     @Symbol("idToken")
