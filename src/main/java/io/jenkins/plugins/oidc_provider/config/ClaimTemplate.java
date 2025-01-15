@@ -24,6 +24,7 @@
 
 package io.jenkins.plugins.oidc_provider.config;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
@@ -37,6 +38,7 @@ import jenkins.model.Jenkins;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
 public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> {
@@ -44,11 +46,21 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
     public final @NonNull String name;
     public final @NonNull String format;
     public final @NonNull ClaimType type;
+    private @CheckForNull String requiredEnvVars;
 
     @DataBoundConstructor public ClaimTemplate(String name, String format, ClaimType type) {
         this.name = name;
         this.format = format;
         this.type = type;
+    }
+
+    @DataBoundSetter
+    public void setRequiredEnvVars(String vars) {
+        this.requiredEnvVars = Util.fixEmpty(vars);
+    }
+
+    public String getRequiredEnvVars() {
+        return this.requiredEnvVars;
     }
 
     @Restricted(NoExternalUse.class)
@@ -72,6 +84,14 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
                 return FormValidation.error("You must specify a claim name.");
             } else if (IdTokenCredentials.STANDARD_CLAIMS.contains(value)) {
                 return FormValidation.error("You must not specify this standard claim.");
+            } else {
+                return FormValidation.ok();
+            }
+        }
+
+        public FormValidation doCheckRequiredEnvVars(@QueryParameter String value) {
+            if (!value.equals(value.toUpperCase())) {
+                return FormValidation.warning("Defined environment variables should be in upper case.");
             } else {
                 return FormValidation.ok();
             }
