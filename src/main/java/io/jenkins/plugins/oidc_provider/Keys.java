@@ -37,7 +37,7 @@ import java.util.logging.Logger;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.HttpResponses;
-import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerRequest2;
 
 /**
  * Serves OIDC definition and JWKS.
@@ -56,7 +56,7 @@ import org.kohsuke.stapler.StaplerRequest;
         return URL_NAME;
     }
 
-    public JSONObject doDynamic(StaplerRequest req) {
+    public JSONObject doDynamic(StaplerRequest2 req) {
         String path = req.getOriginalRestOfPath();
         try (ACLContext context = ACL.as2(ACL.SYSTEM2)) { // both forUri and credentials might check permissions
             Issuer i = findIssuer(path, WELL_KNOWN_OPENID_CONFIGURATION);

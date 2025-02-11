@@ -30,6 +30,7 @@ import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.cloudbees.plugins.credentials.domains.Domain;
+import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import org.htmlunit.Page;
 import hudson.ExtensionList;
 import hudson.model.ItemGroup;
@@ -54,6 +55,7 @@ import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.TestExtension;
+import org.springframework.security.core.Authentication;
 
 public class KeysTest {
 
@@ -105,7 +107,7 @@ public class KeysTest {
     }
     @SuppressWarnings({"deprecation", "rawtypes"})
     @TestExtension("extraCredentialsProvider") public static final class ExtraProvider extends CredentialsProvider {
-        @Override public <C extends Credentials> List<C> getCredentials(Class<C> type, ItemGroup itemGroup,  org.acegisecurity.Authentication authentication) {
+        @Override public <C extends Credentials> List<C> getCredentialsInItemGroup(Class<C> type, ItemGroup itemGroup, Authentication authentication, List<DomainRequirement> domainRequirements) {
             return Collections.emptyList();
         }
         @Override public CredentialsStore getStore(ModelObject object) {
@@ -113,7 +115,7 @@ public class KeysTest {
                 @Override public ModelObject getContext() {
                     return object;
                 }
-                @Override public boolean hasPermission(org.acegisecurity.Authentication a, Permission permission) {
+                @Override public boolean hasPermission2(Authentication a, Permission permission) {
                     return true;
                 }
                 @Override public List<Credentials> getCredentials(Domain domain) {

@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import jenkins.model.Jenkins;
-import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerRequest2;
 import org.springframework.security.access.AccessDeniedException;
 
 /**
@@ -89,7 +89,7 @@ public final class FolderIssuer extends Issuer {
             return issuers;
         }
 
-        @Override public Issuer forConfig(StaplerRequest req) {
+        @Override public Issuer forConfig(StaplerRequest2 req) {
             ItemGroup<?> folder = req.findAncestorObject(ItemGroup.class);
             return folder instanceof Item ? new FolderIssuer(folder) : null;
         }

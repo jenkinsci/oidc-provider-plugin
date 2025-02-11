@@ -38,7 +38,7 @@ import jenkins.model.GlobalConfigurationCategory;
 import net.sf.json.JSONObject;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundSetter;
-import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerRequest2;
 
 @Symbol("idToken")
 @Extension public final class IdTokenConfiguration extends GlobalConfiguration {
@@ -117,7 +117,7 @@ import org.kohsuke.stapler.StaplerRequest;
         save();
     }
 
-    @Override public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
+    @Override public boolean configure(StaplerRequest2 req, JSONObject json) throws FormException {
         // Allow empty lists to be configured (form binding will simply omit mention of them):
         claimTemplates = null;
         buildClaimTemplates = null;

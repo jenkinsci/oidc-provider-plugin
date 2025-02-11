@@ -31,7 +31,7 @@ import hudson.model.Run;
 import java.util.Collection;
 import java.util.Collections;
 import jenkins.model.Jenkins;
-import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerRequest2;
 import org.springframework.security.access.AccessDeniedException;
 
 /**
@@ -59,7 +59,7 @@ import org.springframework.security.access.AccessDeniedException;
         return Collections.singleton(this);
     }
 
-    @Override public Issuer forConfig(StaplerRequest req) {
+    @Override public Issuer forConfig(StaplerRequest2 req) {
         // TODO or unconditionally return this, but register at a lower number than FolderIssuer?
         return req.findAncestorObject(Item.class) == null ? this : null;
     }
