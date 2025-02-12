@@ -47,11 +47,11 @@ public class ConfigurationAsCodeTest {
 
     @ConfiguredWithCode("jcasc.yaml")
     @Test public void basics() throws Exception {
-        IdTokenStringCredentials c1 = CredentialsProvider.lookupCredentials(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList()).get(0);
+        IdTokenStringCredentials c1 = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList()).get(0);
         assertThat(c1.getId(), is("my-jwt-1"));
         assertThat(c1.getScope(), is(CredentialsScope.GLOBAL));
         assertThat(c1.getAudience(), is("wherever.net"));
-        IdTokenFileCredentials c2 = CredentialsProvider.lookupCredentials(IdTokenFileCredentials.class, r.jenkins, null, Collections.emptyList()).get(0);
+        IdTokenFileCredentials c2 = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenFileCredentials.class, r.jenkins, null, Collections.emptyList()).get(0);
         assertThat(c2.getId(), is("my-jwt-2"));
         assertThat(c2.getAudience(), is(nullValue()));
     }

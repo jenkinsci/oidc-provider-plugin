@@ -70,7 +70,7 @@ import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerRequest2;
 
 public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
@@ -243,7 +243,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
     protected static abstract class IdTokenCredentialsDescriptor extends BaseStandardCredentialsDescriptor {
 
-        private static @CheckForNull Issuer issuerFromRequest(@NonNull StaplerRequest req) {
+        private static @CheckForNull Issuer issuerFromRequest(@NonNull StaplerRequest2 req) {
             Issuer i = ExtensionList.lookup(Issuer.Factory.class).stream().map(f -> f.forConfig(req)).filter(Objects::nonNull).findFirst().orElse(null);
             if (i != null) {
                 i.checkExtendedReadPermission();
@@ -251,7 +251,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             return i;
         }
 
-        public final FormValidation doCheckIssuer(StaplerRequest req, @QueryParameter String id, @QueryParameter String issuer) {
+        public final FormValidation doCheckIssuer(StaplerRequest2 req, @QueryParameter String id, @QueryParameter String issuer) {
             Issuer i = issuerFromRequest(req);
             if (Util.fixEmpty(issuer) == null) {
                 if (i != null) {
@@ -302,7 +302,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             return Keys.openidConfiguration(issuer);
         }
 
-        public JSONObject doJwks(StaplerRequest req, @QueryParameter String id, @QueryParameter String issuer) {
+        public JSONObject doJwks(StaplerRequest2 req, @QueryParameter String id, @QueryParameter String issuer) {
             Issuer i = issuerFromRequest(req);
             if (i == null) {
                 throw HttpResponses.notFound();

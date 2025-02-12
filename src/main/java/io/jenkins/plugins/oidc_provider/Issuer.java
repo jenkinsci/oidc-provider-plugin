@@ -41,8 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
-import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerRequest2;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 
 /**
  * Representation of an issuer of tokens.
@@ -60,7 +61,7 @@ public abstract class Issuer {
      * Load credentials from this issuer.
      * Only credentials defined here will be returned—no inherited credentials,
      * unlike {@link CredentialsProvider#lookupStores}
-     * or {@link CredentialsProvider#lookupCredentials(Class, ItemGroup, org.acegisecurity.Authentication, List)}.
+     * or {@link CredentialsProvider#lookupCredentialsInItemGroup(Class, ItemGroup, Authentication, List)}.
      * @return a possibly empty set of credentials
      */
     public final @NonNull Collection<? extends IdTokenCredentials> credentials() {
@@ -128,9 +129,9 @@ public abstract class Issuer {
          * Find an issuer potentially being configured from a certain screen.
          * @param req form validation request in a credentials configuration screen
          * @return a potential issuer for that location, if valid
-         * @see StaplerRequest#findAncestorObject
+         * @see StaplerRequest2#findAncestorObject
          */
-        @CheckForNull Issuer forConfig(@NonNull StaplerRequest req);
+        @CheckForNull Issuer forConfig(@NonNull StaplerRequest2 req);
 
     }
 
