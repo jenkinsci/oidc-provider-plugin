@@ -29,9 +29,12 @@ THE SOFTWARE.
         <f:textbox/>
     </f:entry>
     <f:entry field="format" title="${%Value format}">
-        <f:textbox/>
+        <f:textbox  />
     </f:entry>
     <f:entry field="type" title="${%Value type}">
         <f:dropdownDescriptorSelector field="type" default="${descriptor.defaultType}"/>
+    </f:entry>
+    <f:entry title="Required Environment Variables" field="requiredEnvVars">
+        <f:textbox/>
     </f:entry>
 </j:jelly>

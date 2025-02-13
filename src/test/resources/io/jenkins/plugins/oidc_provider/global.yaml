@@ -9,10 +9,13 @@ security:
     - name: sub
       format: jenkins
       type: string
+      requiredEnvVars: ""
     buildClaimTemplates:
     - name: sub
       format: ^${JOB_NAME}
       type: string
+      requiredEnvVars: "JOB_NAME"
     - name: num
       format: ^${BUILD_NUMBER}
       type: integer
+      requiredEnvVars:
