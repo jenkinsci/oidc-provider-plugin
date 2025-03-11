@@ -28,25 +28,28 @@ import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import io.jenkins.plugins.casc.misc.ConfiguredWithCode;
 import io.jenkins.plugins.casc.misc.JenkinsConfiguredWithCodeRule;
+import io.jenkins.plugins.casc.misc.junit.jupiter.WithJenkinsConfiguredWithCode;
 import io.jenkins.plugins.oidc_provider.config.BooleanClaimType;
 import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
 import io.jenkins.plugins.oidc_provider.config.IdTokenConfiguration;
 import io.jenkins.plugins.oidc_provider.config.IntegerClaimType;
 import io.jenkins.plugins.oidc_provider.config.StringClaimType;
+import org.junit.jupiter.api.Test;
+
 import java.util.Arrays;
 import java.util.Collections;
-import org.junit.Test;
-import static org.hamcrest.Matchers.*;
+
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
-import org.junit.Rule;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class ConfigurationAsCodeTest {
+@WithJenkinsConfiguredWithCode
+class ConfigurationAsCodeTest {
 
-    @Rule public JenkinsConfiguredWithCodeRule r = new JenkinsConfiguredWithCodeRule();
-
+    @Test
     @ConfiguredWithCode("jcasc.yaml")
-    @Test public void basics() throws Exception {
+    void basics(JenkinsConfiguredWithCodeRule r) {
         IdTokenStringCredentials c1 = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList()).get(0);
         assertThat(c1.getId(), is("my-jwt-1"));
         assertThat(c1.getScope(), is(CredentialsScope.GLOBAL));
@@ -56,8 +59,9 @@ public class ConfigurationAsCodeTest {
         assertThat(c2.getAudience(), is(nullValue()));
     }
 
+    @Test
     @ConfiguredWithCode("global.yaml")
-    @Test public void globalConfiguration() throws Exception {
+    void globalConfiguration(JenkinsConfiguredWithCodeRule r) {
         IdTokenConfiguration cfg = IdTokenConfiguration.get();
         assertEquals(60, cfg.getTokenLifetime());
         assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType()))),

@@ -28,38 +28,34 @@ import com.cloudbees.hudson.plugins.folder.Folder;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.domains.Domain;
-import org.htmlunit.Page;
 import hudson.model.ParametersAction;
 import hudson.model.ParametersDefinitionProperty;
 import hudson.model.StringParameterDefinition;
 import hudson.model.StringParameterValue;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import java.net.URL;
-import java.util.logging.Level;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.htmlunit.Page;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
-import static org.junit.Assert.*;
-import org.junit.Rule;
-import org.jvnet.hudson.test.BuildWatcher;
+import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-public class FolderIssuerTest {
+import java.net.URL;
 
-    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
-    @Rule public JenkinsRule r = new JenkinsRule();
-    @Rule public LoggerRule logging = new LoggerRule().recordPackage(FolderIssuer.class, Level.FINE);
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-    @Test public void folderEndpoint() throws Exception {
+@WithJenkins
+class FolderIssuerTest {
+
+    @Test
+    void folderEndpoint(JenkinsRule r) throws Exception {
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null));
         Folder middle = r.jenkins.createProject(Folder.class, "at the top").createProject(Folder.class, "middle");
         CredentialsProvider.lookupStores(middle).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "team", null));
@@ -82,7 +78,8 @@ public class FolderIssuerTest {
         wc.assertFails("oidc/job/at%20the%20top/job/middle/job/bottom/.well-known/openid-configuration", 404);
     }
 
-    @Test public void build() throws Exception {
+    @Test
+    void build(JenkinsRule r) throws Exception {
         IdTokenStringCredentials global = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null);
         global.setAudience("https://global/");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), global);
