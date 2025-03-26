@@ -24,6 +24,7 @@
 
 package io.jenkins.plugins.oidc_provider;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
 import hudson.model.AbstractItem;
@@ -52,6 +53,7 @@ public final class FolderIssuer extends Issuer {
         this.folder = folder;
     }
 
+    @NonNull
     @Override protected ModelObject context() {
         return folder;
     }
@@ -61,6 +63,7 @@ public final class FolderIssuer extends Issuer {
      * but ignores “current” view as well as unusual {@link ItemGroup#getUrlChildPrefix}s.
      * (In practice there are no overrides of the latter whose children could be folders.)
      */
+    @NonNull
     @Override protected String uri() {
         return Stream.of(folder.getFullName().split("/")).map(Util::rawEncode).collect(Collectors.joining("/job/", "/job/", ""));
     }
@@ -71,7 +74,7 @@ public final class FolderIssuer extends Issuer {
 
     @Extension public static final class Factory implements Issuer.Factory {
 
-        @Override public Issuer forUri(String uri) {
+        @Override public Issuer forUri(@NonNull String uri) {
             if (uri.matches("(/job/[^/]+)+")) {
                 Item folder = Jenkins.get().getItemByFullName(URI.create(uri.substring(5).replace("/job/", "/")).getPath());
                 if (folder instanceof ItemGroup) {
@@ -81,7 +84,8 @@ public final class FolderIssuer extends Issuer {
             return null;
         }
 
-        @Override public Collection<? extends Issuer> forContext(Run<?, ?> context) {
+        @NonNull
+        @Override public Collection<? extends Issuer> forContext(@NonNull Run<?, ?> context) {
             List<FolderIssuer> issuers = new ArrayList<>();
             for (ItemGroup<?> folder = context.getParent().getParent(); folder instanceof Item; folder = ((Item) folder).getParent()) {
                 issuers.add(new FolderIssuer(folder));
@@ -89,7 +93,7 @@ public final class FolderIssuer extends Issuer {
             return issuers;
         }
 
-        @Override public Issuer forConfig(StaplerRequest2 req) {
+        @Override public Issuer forConfig(@NonNull StaplerRequest2 req) {
             ItemGroup<?> folder = req.findAncestorObject(ItemGroup.class);
             return folder instanceof Item ? new FolderIssuer(folder) : null;
         }

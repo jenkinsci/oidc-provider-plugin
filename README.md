@@ -64,13 +64,14 @@ In Jenkins, create one of two types of credentials:
 * **OpenID Connect id token** (yields the id token directly as “secret text”)
 * **OpenID Connect id token as file** (saves the id token to a temporary file and yields its path)
 
-The credentials id is recommended for scripted access, or you may let one be chosen at random.
+The credentials id is recommended for scripted access in your pipelines, or you may let one be chosen at random.
 You may enter an audience URI at this time (see below) but it is optional.
 
-The credential may be created at the Jenkins root, or in a folder.
-After saving, **Update** to see the issuer URI.
-If you picked the external issuer option,
-you will be given instructions on what static files to serve from it.
+The credential may be created at the Jenkins root, or in a folder. If you leave the field empty, it will create
+the credential at the root, typically under the URI `https://YOUR_JENKINS_HOST/oidc`
+After saving, click on the **Update** Link to see the generated issuer URI.
+If you picked the external issuer option or entered any value in the issuer URI field,
+you will be given instructions on what static files to serve from it and their values.
 
 To rotate the keypair, simply **Update** and re-**Save** (or otherwise recreate) the credentials.
 
