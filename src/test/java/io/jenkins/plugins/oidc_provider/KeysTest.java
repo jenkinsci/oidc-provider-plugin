@@ -97,6 +97,7 @@ public class KeysTest {
         assertEquals(r.getURL() + "oidc", config.getString("issuer"));
         JenkinsRule.WebClient wc = r.createWebClient();
         Page p = wc.getPage(new URL(config.getString("jwks_uri")));
+        assertEquals("no-cache", p.getWebResponse().getResponseHeaderValue("Cache-Control"));
         assertEquals("application/json", p.getWebResponse().getContentType());
         JSONObject jwks = JSONObject.fromObject(p.getWebResponse().getContentAsString());
         System.err.println(jwks.toString(2));
