@@ -24,6 +24,7 @@
 
 package io.jenkins.plugins.oidc_provider;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Item;
 import hudson.model.ModelObject;
@@ -39,14 +40,16 @@ import org.springframework.security.access.AccessDeniedException;
  */
 @Extension public final class RootIssuer extends Issuer implements Issuer.Factory {
 
-    @Override public Issuer forUri(String prefix) {
+    @Override public Issuer forUri(@NonNull String prefix) {
         return prefix.isEmpty() ? this : null;
     }
 
+    @NonNull
     @Override protected ModelObject context() {
         return Jenkins.get();
     }
 
+    @NonNull
     @Override protected String uri() {
         return "";
     }
@@ -55,11 +58,12 @@ import org.springframework.security.access.AccessDeniedException;
         Jenkins.get().checkPermission(Jenkins.MANAGE);
     }
 
-    @Override public Collection<? extends Issuer> forContext(Run<?, ?> context) {
+    @NonNull
+    @Override public Collection<? extends Issuer> forContext(@NonNull Run<?, ?> context) {
         return Collections.singleton(this);
     }
 
-    @Override public Issuer forConfig(StaplerRequest2 req) {
+    @Override public Issuer forConfig(@NonNull StaplerRequest2 req) {
         // TODO or unconditionally return this, but register at a lower number than FolderIssuer?
         return req.findAncestorObject(Item.class) == null ? this : null;
     }
