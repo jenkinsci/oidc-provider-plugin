@@ -38,6 +38,7 @@ import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.StaplerRequest2;
+import org.kohsuke.stapler.StaplerResponse2;
 
 /**
  * Serves OIDC definition and JWKS.
@@ -56,7 +57,7 @@ import org.kohsuke.stapler.StaplerRequest2;
         return URL_NAME;
     }
 
-    public JSONObject doDynamic(StaplerRequest2 req) {
+    public JSONObject doDynamic(StaplerRequest2 req, StaplerResponse2 res) {
         String path = req.getOriginalRestOfPath();
         try (ACLContext context = ACL.as2(ACL.SYSTEM2)) { // both forUri and credentials might check permissions
             Issuer i = findIssuer(path, WELL_KNOWN_OPENID_CONFIGURATION);
@@ -75,6 +76,7 @@ import org.kohsuke.stapler.StaplerRequest2;
                         }
                         keys.element(key(creds));
                     }
+                    res.setHeader("Cache-Control", "no-cache");
                     return new JSONObject().accumulate("keys", keys);
                 }
             }
