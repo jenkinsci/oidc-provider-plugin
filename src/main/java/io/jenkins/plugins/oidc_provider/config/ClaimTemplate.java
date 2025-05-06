@@ -32,6 +32,10 @@ import hudson.model.Descriptor;
 import hudson.util.FormValidation;
 import io.jenkins.plugins.oidc_provider.IdTokenCredentials;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import jenkins.model.Jenkins;
 import org.kohsuke.accmod.Restricted;
@@ -44,11 +48,17 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
     public final @NonNull String name;
     public final @NonNull String format;
     public final @NonNull ClaimType type;
+    public final @NonNull String pattern;
+    public final @NonNull String replacement;
+    public static final @NonNull String DEFAULT_PATTERN="";
+    public static final @NonNull String DEFAULT_REPLACEMENT="";
 
-    @DataBoundConstructor public ClaimTemplate(String name, String format, ClaimType type) {
+    @DataBoundConstructor public ClaimTemplate(String name, String format, ClaimType type, String pattern, String replacement) {
         this.name = name;
         this.format = format;
         this.type = type;
+        this.pattern = Objects.requireNonNullElse(pattern, DEFAULT_PATTERN);
+        this.replacement = Objects.requireNonNullElse(replacement, DEFAULT_REPLACEMENT);
     }
 
     @Restricted(NoExternalUse.class)
@@ -79,4 +89,15 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
 
     }
 
+    @NonNull
+    public String render(Map<String, String> env) {
+        String raw = Util.replaceMacro(this.format, env);
+        raw = Objects.requireNonNull(raw);
+        if (this.pattern.isEmpty()) {
+            return raw;
+        }
+        Pattern pattern = Pattern.compile(this.pattern);
+        final Matcher matcher = pattern.matcher(raw);
+        return matcher.replaceAll(this.replacement);
+    }
 }
