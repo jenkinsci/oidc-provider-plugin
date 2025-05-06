@@ -29,11 +29,18 @@ import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.EnvVars;
 import hudson.ExtensionList;
 import hudson.Util;
+import hudson.model.AbstractBuild;
+import hudson.model.Computer;
+import hudson.model.EnvironmentContributingAction;
+import hudson.model.EnvironmentContributor;
+import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
+import hudson.util.LogTaskListener;
 import hudson.util.Secret;
 import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
 import io.jenkins.plugins.oidc_provider.config.IdTokenConfiguration;
@@ -53,6 +60,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
@@ -64,15 +72,21 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
+import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest2;
 
 public abstract class IdTokenCredentials extends BaseStandardCredentials {
+
+    private static final Logger LOGGER = Logger.getLogger(IdTokenCredentials.class.getName());
 
     private static final long serialVersionUID = 1;
 
@@ -192,7 +206,14 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
         Map<String, String> env;
         if (build != null) {
             try {
-                env = build.getEnvironment(TaskListener.NULL);
+                TaskListener listener = new LogTaskListener(Logger.getLogger(IdTokenCredentials.class.getName()), Level.INFO);
+                if (build instanceof FlowExecutionOwner.Executable feoe) {
+                    var feo = feoe.asFlowExecutionOwner();
+                    if (feo != null) {
+                        listener = feo.getListener();
+                    }
+                }
+                env = getEnvironment(build, listener);
             } catch (IOException | InterruptedException x) {
                 throw new RuntimeException(x);
             }
@@ -223,6 +244,45 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
         return builder.
             signWith(kp.getPrivate()).
             compact();
+    }
+
+    /**
+     * Safer version of {@link Run#getEnvironment(TaskListener)} (and {@link Job#getEnvironment}) which prevents overrides.
+     */
+    private static EnvVars getEnvironment(Run<?, ?> build, TaskListener listener) throws IOException, InterruptedException {
+        var envs = new ArrayList<EnvVars>();
+        var c = Computer.currentComputer();
+        if (c != null) {
+            envs.add(c.getEnvironment());
+            envs.add(c.buildEnvironment(listener));
+        }
+        envs.add(new EnvVars("CLASSPATH", ""));
+        envs.add(build.getCharacteristicEnvVars()); // includes Job.getCharacteristicEnvVars
+        for (var ec : EnvironmentContributor.all()) {
+            var env = new EnvVars();
+            ec.buildEnvironmentFor(build.getParent(), env, listener);
+            envs.add(env);
+            env = new EnvVars();
+            ec.buildEnvironmentFor(build, env, listener);
+            envs.add(env);
+        }
+        if (!(build instanceof AbstractBuild)) {
+            for (var a : build.getActions(EnvironmentContributingAction.class)) {
+                var env = new EnvVars();
+                a.buildEnvironment(build, env);
+                envs.add(env);
+            }
+        }
+        var merged = new EnvVars();
+        envs.stream().flatMap(env -> env.entrySet().stream()).collect(Collectors.groupingBy(Map.Entry::getKey)).entrySet().stream().forEach(entry -> {
+            var values = entry.getValue().stream().map(Map.Entry::getValue).collect(Collectors.toSet());
+            if (values.size() == 1) {
+                merged.put(entry.getKey(), values.iterator().next());
+            } else {
+                listener.error("Refusing to consider conflicting values " + values + " of " + entry.getKey() + " for " + build);
+            }
+        });
+        return merged;
     }
 
     protected @NonNull Issuer findIssuer() {

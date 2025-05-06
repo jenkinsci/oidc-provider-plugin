@@ -30,15 +30,21 @@ import com.cloudbees.hudson.plugins.folder.Folder;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.domains.Domain;
+import hudson.EnvVars;
+import hudson.model.EnvironmentContributor;
+import hudson.model.Job;
 import org.htmlunit.html.HtmlAnchor;
 import org.htmlunit.html.HtmlForm;
 import org.htmlunit.html.HtmlPage;
 import hudson.model.Result;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 import io.jenkins.plugins.oidc_provider.config.BooleanClaimType;
 import io.jenkins.plugins.oidc_provider.config.IntegerClaimType;
 import io.jenkins.plugins.oidc_provider.config.StringClaimType;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -47,6 +53,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import jenkins.model.Jenkins;
+import static jenkins.test.RunMatchers.logContains;
 import org.junit.Test;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -56,12 +63,18 @@ import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import org.junit.ClassRule;
 import org.junit.Rule;
+import org.jvnet.hudson.test.BuildWatcher;
+import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.JenkinsSessionRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
+import org.jvnet.hudson.test.TestExtension;
 
 public class IdTokenCredentialsTest {
+
+    @ClassRule public static final BuildWatcher bw = new BuildWatcher();
 
     @Rule public JenkinsSessionRule rr = new JenkinsSessionRule();
 
@@ -202,6 +215,60 @@ public class IdTokenCredentialsTest {
             cfg.setBuildClaimTemplates(Collections.singletonList(new ClaimTemplate("stuff", "fine but where is sub?", new StringClaimType())));
             r.assertLogContains("must specify sub", r.buildAndAssertStatus(Result.FAILURE, p));
         });
+    }
+
+    @Issue("SECURITY-3574")
+    @Test public void spoofedClaimsRunLevel() throws Throwable {
+        rr.then(r -> {
+            var c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            var p = r.createProject(Folder.class, "dir").createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {env.TOK = TOK}", true));
+            var b = r.buildAndAssertSuccess(p);
+            var idToken = b.getAction(EnvironmentAction.class).getEnvironment().get("TOK");
+            System.out.println(idToken);
+            var claims = Jwts.parserBuilder().
+                setSigningKey(c.publicKey()).
+                build().
+                parseClaimsJws(idToken).
+                getBody();
+            System.out.println(claims);
+            assertEquals(/* p.getAbsoluteUrl() */ "${JOB_URL}", claims.getSubject());
+            assertThat(b, logContains("Refusing to consider conflicting values"));
+        });
+    }
+    @SuppressWarnings("rawtypes") // design flaw in Jenkins core
+    @TestExtension("spoofedClaimsRunLevel") public static final class RunSpoofer extends EnvironmentContributor {
+        @Override public void buildEnvironmentFor(Run r, EnvVars envs, TaskListener listener) throws IOException, InterruptedException {
+            envs.put("JOB_URL", "https://bogus.com/");
+        }
+    }
+
+    @Issue("SECURITY-3574")
+    @Test public void spoofedClaimsJobLevel() throws Throwable {
+        rr.then(r -> {
+            var c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            var p = r.createProject(Folder.class, "dir").createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {env.TOK = TOK}", true));
+            var b = r.buildAndAssertSuccess(p);
+            var idToken = b.getAction(EnvironmentAction.class).getEnvironment().get("TOK");
+            System.out.println(idToken);
+            var claims = Jwts.parserBuilder().
+                setSigningKey(c.publicKey()).
+                build().
+                parseClaimsJws(idToken).
+                getBody();
+            System.out.println(claims);
+            assertEquals(/* p.getAbsoluteUrl() */ "${JOB_URL}", claims.getSubject());
+            assertThat(b, logContains("Refusing to consider conflicting values"));
+        });
+    }
+    @SuppressWarnings("rawtypes") // design flaw in Jenkins core
+    @TestExtension("spoofedClaimsJobLevel") public static final class JobSpoofer extends EnvironmentContributor {
+        @Override public void buildEnvironmentFor(Job j, EnvVars envs, TaskListener listener) throws IOException, InterruptedException {
+            envs.put("JOB_URL", "https://bogus.com/");
+        }
     }
 
 }
