@@ -32,7 +32,7 @@ THE SOFTWARE.
 
         <f:advanced title="${%Claim templates}" align="left">
             <f:entry field="claimTemplates" title="${%General claim templates}">
-                <f:repeatableProperty field="claimTemplates">
+                <f:repeatableProperty field="claimTemplates" header="Template">
                     <f:block>
                         <div align="right">
                             <f:repeatableDeleteButton/>
@@ -41,7 +41,7 @@ THE SOFTWARE.
                 </f:repeatableProperty>
             </f:entry>
             <f:entry field="buildClaimTemplates" title="${%Build-scoped claim templates}">
-                <f:repeatableProperty field="buildClaimTemplates">
+                <f:repeatableProperty field="buildClaimTemplates" header="Template">
                     <f:block>
                         <div align="right">
                             <f:repeatableDeleteButton/>
@@ -50,7 +50,7 @@ THE SOFTWARE.
                 </f:repeatableProperty>
             </f:entry>
             <f:entry field="globalClaimTemplates" title="${%Globally-scoped claim templates}">
-                <f:repeatableProperty field="globalClaimTemplates">
+                <f:repeatableProperty field="globalClaimTemplates" header="Template">
                     <f:block>
                         <div align="right">
                             <f:repeatableDeleteButton/>

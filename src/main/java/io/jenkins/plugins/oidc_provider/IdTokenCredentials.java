@@ -57,6 +57,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +65,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -73,6 +75,8 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest2;
 
 public abstract class IdTokenCredentials extends BaseStandardCredentials {
+
+    private static final Logger LOGGER = Logger.getLogger(IdTokenCredentials.class.getName());
 
     private static final long serialVersionUID = 1;
 
@@ -201,6 +205,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             env = Collections.singletonMap("JENKINS_URL", Jenkins.get().getRootUrl());
         }
         AtomicBoolean definedSub = new AtomicBoolean();
+        Map<String, Boolean> definedClaims = new HashMap<>();
         Consumer<List<ClaimTemplate>> addClaims = claimTemplates -> {
             for (ClaimTemplate t : claimTemplates) {
                 if (STANDARD_CLAIMS.contains(t.name)) {
@@ -208,13 +213,24 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                 } else if (t.name.equals(Claims.SUBJECT)) {
                     definedSub.set(true);
                 }
-                builder.claim(t.name, t.type.parse(Util.replaceMacro(t.format, env)));
+                if (t.getRequiredEnvVars() == null || env.keySet().containsAll(Arrays.asList(t.getRequiredEnvVars().split("\\s*\\s")))) {
+                    if (definedClaims.containsKey(t.name)) {
+                        LOGGER.fine(() -> "declining to set claim: " + t.name + " with format: " + t.format + " as it has already been set.");
+                    } else {
+                        LOGGER.fine(() -> "setting claim: " + t.name + " with format: " + t.format);
+                        builder.claim(t.name, t.type.parse(Util.replaceMacro(t.format, env)));
+                        definedClaims.put(t.name, true);
+                    }
+                }
             }
         };
+        LOGGER.fine("setting claim templates");
         addClaims.accept(cfg.getClaimTemplates());
         if (build != null) {
+            LOGGER.fine("setting build claim templates");
             addClaims.accept(cfg.getBuildClaimTemplates());
         } else {
+            LOGGER.fine("setting global claim templates");
             addClaims.accept(cfg.getGlobalClaimTemplates());
         }
         if (!definedSub.get()) {

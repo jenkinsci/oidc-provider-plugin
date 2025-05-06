@@ -190,6 +190,99 @@ public class IdTokenCredentialsTest {
         });
     }
 
+    @Test public void requiredEnvironmentVariablesAreHonoured() throws Throwable {
+        rr.then(r -> {
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            IdTokenConfiguration cfg = IdTokenConfiguration.get();
+            cfg.setClaimTemplates(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType())));
+            cfg.setGlobalClaimTemplates(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType())));
+
+            ClaimTemplate claimWithRequired1 = new ClaimTemplate("sub", "${JOB_NAME}:custom", new StringClaimType());
+            claimWithRequired1.setRequiredEnvVars("JOB_NAME BUILD_ID");
+            ClaimTemplate claimWithRequired2 = new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType());
+            claimWithRequired2.setRequiredEnvVars("JOB_NAME");
+            cfg.setBuildClaimTemplates(Arrays.asList(
+                claimWithRequired1,
+                claimWithRequired2,
+                new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType())));
+
+
+            String idToken = c.getSecret().getPlainText();
+            System.out.println(idToken);
+            Claims claims = Jwts.parserBuilder().
+                setSigningKey(c.publicKey()).
+                build().
+                parseClaimsJws(idToken).
+                getBody();
+            System.out.println(claims);
+            assertEquals(r.jenkins.getRootUrl() + "oidc", claims.getIssuer());
+            assertEquals("jenkins", claims.getSubject());
+            assertTrue(claims.get("ok", Boolean.class));
+            WorkflowJob p = r.createProject(Folder.class, "dir").createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {env.TOK = TOK}", true));
+            WorkflowRun b = r.buildAndAssertSuccess(p);
+            EnvironmentAction env = b.getAction(EnvironmentAction.class);
+            idToken = env.getEnvironment().get("TOK");
+            System.out.println(idToken);
+            claims = Jwts.parserBuilder().
+                setSigningKey(c.publicKey()).
+                build().
+                parseClaimsJws(idToken).
+                getBody();
+            System.out.println(claims);
+            assertEquals(r.jenkins.getRootUrl() + "oidc", claims.getIssuer());
+            assertEquals("dir/p:custom", claims.getSubject());
+            assertEquals(1, claims.get("num", Integer.class).intValue());
+            assertTrue(claims.get("ok", Boolean.class));
+        });
+    }
+
+    @Test public void ifNoRequiredEnvironmentVariablesAreMatched() throws Throwable {
+        rr.then(r -> {
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            IdTokenConfiguration cfg = IdTokenConfiguration.get();
+            cfg.setClaimTemplates(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType())));
+            cfg.setGlobalClaimTemplates(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType())));
+
+            ClaimTemplate claimWithRequired = new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType());
+            claimWithRequired.setRequiredEnvVars("JOB_NAME THIS_WILL_NEVER_BE_SET");
+            cfg.setBuildClaimTemplates(Arrays.asList(
+                claimWithRequired,
+                new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()), //fallback sub
+                new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType())));
+
+            String idToken = c.getSecret().getPlainText();
+            System.out.println(idToken);
+            Claims claims = Jwts.parserBuilder().
+                setSigningKey(c.publicKey()).
+                build().
+                parseClaimsJws(idToken).
+                getBody();
+            System.out.println(claims);
+            assertEquals(r.jenkins.getRootUrl() + "oidc", claims.getIssuer());
+            assertEquals("jenkins", claims.getSubject());
+            assertTrue(claims.get("ok", Boolean.class));
+            WorkflowJob p = r.createProject(Folder.class, "dir").createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {env.TOK = TOK}", true));
+            WorkflowRun b = r.buildAndAssertSuccess(p);
+            EnvironmentAction env = b.getAction(EnvironmentAction.class);
+            idToken = env.getEnvironment().get("TOK");
+            System.out.println(idToken);
+            claims = Jwts.parserBuilder().
+                setSigningKey(c.publicKey()).
+                build().
+                parseClaimsJws(idToken).
+                getBody();
+            System.out.println(claims);
+            assertEquals(r.jenkins.getRootUrl() + "oidc", claims.getIssuer());
+            assertEquals("dir/p", claims.getSubject());
+            assertEquals(1, claims.get("num", Integer.class).intValue());
+            assertTrue(claims.get("ok", Boolean.class));
+        });
+    }
+
     @Test public void invalidCustomClaims() throws Throwable {
         rr.then(r -> {
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null));
