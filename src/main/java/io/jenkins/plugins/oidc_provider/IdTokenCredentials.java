@@ -25,7 +25,10 @@
 package io.jenkins.plugins.oidc_provider;
 
 import com.cloudbees.plugins.credentials.Credentials;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.CredentialsStore;
+import com.cloudbees.plugins.credentials.domains.Domain;
 import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -109,7 +112,42 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
     private transient @CheckForNull Run<?, ?> build;
 
     protected IdTokenCredentials(CredentialsScope scope, String id, String description) {
-        this(scope, id, description, generatePrivateKey());
+        this(scope, id, description, findOrGenerateKeyPair(scope, id, description));
+    }
+
+    private static KeyPair findOrGenerateKeyPair(CredentialsScope scope, String id, String description) {
+        try {
+            com.cloudbees.plugins.credentials.SystemCredentialsProvider sysProvider = com.cloudbees.plugins.credentials.SystemCredentialsProvider.getInstance();
+            if (sysProvider != null) {
+                java.util.Map<com.cloudbees.plugins.credentials.domains.Domain, java.util.List<com.cloudbees.plugins.credentials.Credentials>> domainMap = sysProvider.getDomainCredentialsMap();
+                java.util.List<com.cloudbees.plugins.credentials.Credentials> creds = domainMap.get(com.cloudbees.plugins.credentials.domains.Domain.global());
+                if (creds != null) {
+                    for (com.cloudbees.plugins.credentials.Credentials c : creds) {
+                        if (c instanceof IdTokenCredentials) {
+                            IdTokenCredentials cred = (IdTokenCredentials) c;
+                            if (cred.getId().equals(id)) {
+                                return cred.kp;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            // fallback to new keypair if lookup fails
+        }
+        return generatePrivateKey();
+    }
+    
+    public synchronized void rotateKeypair() {
+        KeyPair newKp = generatePrivateKey();
+        this.kp = newKp;
+        try {
+            java.lang.reflect.Field privKeyField = IdTokenCredentials.class.getDeclaredField("privateKey");
+            privKeyField.setAccessible(true);
+            privKeyField.set(this, serializePrivateKey(newKp));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to update private key after rotation", e);
+        }
     }
 
     private static KeyPair generatePrivateKey() {
@@ -372,6 +410,29 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                 throw HttpResponses.notFound();
             }
             return new JSONObject().accumulate("keys", new JSONArray().element(Keys.key(c)));
+        }
+
+        public FormValidation doRotateKeypair(@QueryParameter("id") String id) {
+            for (CredentialsStore store : CredentialsProvider.lookupStores(Jenkins.get())) {
+                for (Domain domain : store.getDomains()) {
+                    List<Credentials> creds = store.getCredentials(domain);
+                    for (Credentials c : creds) {
+                        if (c instanceof IdTokenCredentials) {
+                            IdTokenCredentials cred = (IdTokenCredentials) c;
+                            if (cred.getId().equals(id)) {
+                                cred.rotateKeypair();
+                                try {
+                                    store.save();
+                                } catch (IOException e) {
+                                    return FormValidation.error("Failed to save credential store: " + e.getMessage());
+                                }
+                                return FormValidation.ok("Keypair rotated for credential ID: " + id);
+                            }
+                        }
+                    }
+                }
+            }
+            return FormValidation.error("Credential not found: " + id);
         }
 
     }
