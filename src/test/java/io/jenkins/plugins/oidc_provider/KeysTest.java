@@ -31,6 +31,7 @@ import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import org.htmlunit.Page;
 import hudson.ExtensionList;
 import hudson.model.ItemGroup;
@@ -47,22 +48,33 @@ import net.sf.json.JSONObject;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.instanceOf;
-import static org.junit.Assert.assertEquals;
-import org.junit.Test;
-import org.junit.Rule;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.jvnet.hudson.test.LoggerRule;
+import org.jvnet.hudson.test.LogRecorder;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.TestExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 import org.springframework.security.core.Authentication;
 
-public class KeysTest {
+@WithJenkins
+class KeysTest {
 
-    @Rule public JenkinsRule r = new JenkinsRule();
-    @Rule public LoggerRule logging = new LoggerRule().recordPackage(Keys.class, Level.FINE);
+    @SuppressWarnings("unused")
+    private final LogRecorder logging = new LogRecorder().recordPackage(Keys.class, Level.FINE);
 
-    @Test public void globalEndpoint() throws Exception {
+    private JenkinsRule r;
+
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
+
+    @Test
+    void globalEndpoint() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
         r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().grant(Jenkins.ADMINISTER).everywhere().toAuthenticated());
         CredentialsStore store = CredentialsProvider.lookupStores(r.jenkins).iterator().next();
@@ -89,7 +101,8 @@ public class KeysTest {
     }
 
     @Issue("https://github.com/jenkinsci/oidc-provider-plugin/issues/21")
-    @Test public void extraCredentialsProvider() throws Exception {
+    @Test
+    void extraCredentialsProvider() throws Exception {
         assertThat(ExtensionList.lookup(CredentialsProvider.class), hasItem(instanceOf(ExtraProvider.class)));
         SystemCredentialsProvider.getInstance().getDomainCredentialsMap().get(Domain.global()).add(new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null));
         JSONObject config = r.getJSON("oidc/.well-known/openid-configuration").getJSONObject();
@@ -105,33 +118,52 @@ public class KeysTest {
         JSONObject key = keys.getJSONObject(0);
         assertEquals("global", key.getString("kid"));
     }
-    @SuppressWarnings({"deprecation", "rawtypes"})
-    @TestExtension("extraCredentialsProvider") public static final class ExtraProvider extends CredentialsProvider {
-        @Override public <C extends Credentials> List<C> getCredentialsInItemGroup(Class<C> type, ItemGroup itemGroup, Authentication authentication, List<DomainRequirement> domainRequirements) {
+
+    @TestExtension("extraCredentialsProvider")
+    public static final class ExtraProvider extends CredentialsProvider {
+
+        @NonNull
+        @Override
+        public <C extends Credentials> List<C> getCredentialsInItemGroup(@NonNull Class<C> type, ItemGroup itemGroup, Authentication authentication, @NonNull List<DomainRequirement> domainRequirements) {
             return Collections.emptyList();
         }
-        @Override public CredentialsStore getStore(ModelObject object) {
+
+        @Override
+        public CredentialsStore getStore(ModelObject object) {
             return new CredentialsStore(ExtraProvider.class) {
-                @Override public ModelObject getContext() {
+
+                @NonNull
+                @Override
+                public ModelObject getContext() {
                     return object;
                 }
-                @Override public boolean hasPermission2(Authentication a, Permission permission) {
+
+                @Override
+                public boolean hasPermission2(@NonNull Authentication a, @NonNull Permission permission) {
                     return true;
                 }
-                @Override public List<Credentials> getCredentials(Domain domain) {
+
+                @NonNull
+                @Override
+                public List<Credentials> getCredentials(@NonNull Domain domain) {
                     return Collections.emptyList();
                 }
-                @Override public boolean addCredentials(Domain domain, Credentials credentials) throws IOException {
+
+                @Override
+                public boolean addCredentials(@NonNull Domain domain, @NonNull Credentials credentials) throws IOException {
                     throw new IOException("no");
                 }
-                @Override public boolean removeCredentials(Domain domain, Credentials credentials) throws IOException {
+
+                @Override
+                public boolean removeCredentials(@NonNull Domain domain, @NonNull Credentials credentials) throws IOException {
                     throw new IOException("no");
                 }
-                @Override public boolean updateCredentials(Domain domain, Credentials current, Credentials replacement) throws IOException {
+
+                @Override
+                public boolean updateCredentials(@NonNull Domain domain, @NonNull Credentials current, @NonNull Credentials replacement) throws IOException {
                     throw new IOException("no");
                 }
             };
         }
     }
-
 }

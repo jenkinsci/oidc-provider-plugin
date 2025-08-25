@@ -24,6 +24,7 @@
 
 package io.jenkins.plugins.oidc_provider;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import io.jenkins.plugins.oidc_provider.config.IdTokenConfiguration;
 import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
 import com.cloudbees.hudson.plugins.folder.Folder;
@@ -44,7 +45,7 @@ import io.jenkins.plugins.oidc_provider.config.IntegerClaimType;
 import io.jenkins.plugins.oidc_provider.config.StringClaimType;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import java.io.IOException;
+
 import java.math.BigInteger;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -54,31 +55,35 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import jenkins.model.Jenkins;
 import static jenkins.test.RunMatchers.logContains;
-import org.junit.Test;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.jvnet.hudson.test.BuildWatcher;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.jvnet.hudson.test.JenkinsSessionRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.TestExtension;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.JenkinsSessionExtension;
 
-public class IdTokenCredentialsTest {
+class IdTokenCredentialsTest {
 
-    @ClassRule public static final BuildWatcher bw = new BuildWatcher();
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
 
-    @Rule public JenkinsSessionRule rr = new JenkinsSessionRule();
+    @RegisterExtension
+    private final JenkinsSessionExtension rr = new JenkinsSessionExtension();
 
-    @Test public void persistence() throws Throwable {
+    @Test
+    void persistence() throws Throwable {
         AtomicReference<BigInteger> modulus = new AtomicReference<>();
         rr.then(r -> {
             IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
@@ -111,7 +116,8 @@ public class IdTokenCredentialsTest {
         });
     }
 
-    @Test public void checkIssuer() throws Throwable {
+    @Test
+    void checkIssuer() throws Throwable {
         rr.then(r -> {
             IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "ext1", null);
             c.setIssuer("https://xxx");
@@ -147,7 +153,8 @@ public class IdTokenCredentialsTest {
         });
     }
 
-    @Test public void tokenLifetime() throws Throwable {
+    @Test
+    void tokenLifetime() throws Throwable {
         rr.then(r -> {
             IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
@@ -165,7 +172,8 @@ public class IdTokenCredentialsTest {
         });
     }
 
-    @Test public void customClaims() throws Throwable {
+    @Test
+    void customClaims() throws Throwable {
         rr.then(r -> {
             IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
@@ -203,7 +211,8 @@ public class IdTokenCredentialsTest {
         });
     }
 
-    @Test public void invalidCustomClaims() throws Throwable {
+    @Test
+    void invalidCustomClaims() throws Throwable {
         rr.then(r -> {
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null));
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
@@ -218,7 +227,8 @@ public class IdTokenCredentialsTest {
     }
 
     @Issue("SECURITY-3574")
-    @Test public void spoofedClaimsRunLevel() throws Throwable {
+    @Test
+    void spoofedClaimsRunLevel() throws Throwable {
         rr.then(r -> {
             var c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
@@ -237,15 +247,20 @@ public class IdTokenCredentialsTest {
             assertThat(b, logContains("Refusing to consider conflicting values"));
         });
     }
-    @SuppressWarnings("rawtypes") // design flaw in Jenkins core
-    @TestExtension("spoofedClaimsRunLevel") public static final class RunSpoofer extends EnvironmentContributor {
-        @Override public void buildEnvironmentFor(Run r, EnvVars envs, TaskListener listener) throws IOException, InterruptedException {
+
+    @SuppressWarnings("unused")
+    @TestExtension("spoofedClaimsRunLevel")
+    public static final class RunSpoofer extends EnvironmentContributor {
+
+        @Override
+        public void buildEnvironmentFor(@NonNull Run r, @NonNull EnvVars envs, @NonNull TaskListener listener) {
             envs.put("JOB_URL", "https://bogus.com/");
         }
     }
 
     @Issue("SECURITY-3574")
-    @Test public void spoofedClaimsJobLevel() throws Throwable {
+    @Test
+    void spoofedClaimsJobLevel() throws Throwable {
         rr.then(r -> {
             var c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
@@ -264,11 +279,14 @@ public class IdTokenCredentialsTest {
             assertThat(b, logContains("Refusing to consider conflicting values"));
         });
     }
-    @SuppressWarnings("rawtypes") // design flaw in Jenkins core
-    @TestExtension("spoofedClaimsJobLevel") public static final class JobSpoofer extends EnvironmentContributor {
-        @Override public void buildEnvironmentFor(Job j, EnvVars envs, TaskListener listener) throws IOException, InterruptedException {
+
+    @SuppressWarnings("unused")
+    @TestExtension("spoofedClaimsJobLevel")
+    public static final class JobSpoofer extends EnvironmentContributor {
+
+        @Override
+        public void buildEnvironmentFor(@NonNull Job j, @NonNull EnvVars envs, @NonNull TaskListener listener) {
             envs.put("JOB_URL", "https://bogus.com/");
         }
     }
-
 }

@@ -28,6 +28,7 @@ import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import io.jenkins.plugins.casc.misc.ConfiguredWithCode;
 import io.jenkins.plugins.casc.misc.JenkinsConfiguredWithCodeRule;
+import io.jenkins.plugins.casc.misc.junit.jupiter.WithJenkinsConfiguredWithCode;
 import io.jenkins.plugins.oidc_provider.config.BooleanClaimType;
 import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
 import io.jenkins.plugins.oidc_provider.config.IdTokenConfiguration;
@@ -35,18 +36,18 @@ import io.jenkins.plugins.oidc_provider.config.IntegerClaimType;
 import io.jenkins.plugins.oidc_provider.config.StringClaimType;
 import java.util.Arrays;
 import java.util.Collections;
-import org.junit.Test;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
-import org.junit.Rule;
 
-public class ConfigurationAsCodeTest {
+import org.junit.jupiter.api.Test;
 
-    @Rule public JenkinsConfiguredWithCodeRule r = new JenkinsConfiguredWithCodeRule();
+@WithJenkinsConfiguredWithCode
+class ConfigurationAsCodeTest {
 
     @ConfiguredWithCode("jcasc.yaml")
-    @Test public void basics() throws Exception {
+    @Test
+    void basics(JenkinsConfiguredWithCodeRule r) {
         IdTokenStringCredentials c1 = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList()).get(0);
         assertThat(c1.getId(), is("my-jwt-1"));
         assertThat(c1.getScope(), is(CredentialsScope.GLOBAL));
@@ -57,7 +58,8 @@ public class ConfigurationAsCodeTest {
     }
 
     @ConfiguredWithCode("global.yaml")
-    @Test public void globalConfiguration() throws Exception {
+    @Test
+    void globalConfiguration(JenkinsConfiguredWithCodeRule r) {
         IdTokenConfiguration cfg = IdTokenConfiguration.get();
         assertEquals(60, cfg.getTokenLifetime());
         assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType()))),
@@ -67,5 +69,4 @@ public class ConfigurationAsCodeTest {
         assertEquals(ClaimTemplate.xmlForm(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType()))),
             ClaimTemplate.xmlForm(cfg.getBuildClaimTemplates()));
     }
-
 }
