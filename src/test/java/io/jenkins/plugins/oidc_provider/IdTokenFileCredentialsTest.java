@@ -30,36 +30,49 @@ import com.cloudbees.plugins.credentials.domains.Domain;
 import hudson.slaves.DumbSlave;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import org.junit.ClassRule;
-import org.junit.Test;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
-import static org.junit.Assert.*;
-import org.junit.Rule;
-import org.jvnet.hudson.test.BuildWatcher;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-public class IdTokenFileCredentialsTest {
+@WithJenkins
+class IdTokenFileCredentialsTest {
 
-    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
 
-    @Rule public JenkinsRule r = new JenkinsRule();
+    private JenkinsRule r;
 
-    @Test public void smokes() throws Exception {
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
+
+    @Test
+    void smokes() throws Exception {
         IdTokenFileCredentials c = new IdTokenFileCredentials(CredentialsScope.GLOBAL, "test", null);
         c.setAudience("https://service/");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
         r.createSlave("remote", null, null);
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition(
-            "node('remote') {\n" +
-            "  withCredentials([file(variable: 'ID_TOKEN_FILE', credentialsId: 'test')]) {\n" +
-            "    echo(/binding id token file $ID_TOKEN_FILE/)\n" +
-            "    env.RESULT = readFile ID_TOKEN_FILE\n" +
-            "  }\n" +
-            "}", true));
+                """
+                        node('remote') {
+                          withCredentials([file(variable: 'ID_TOKEN_FILE', credentialsId: 'test')]) {
+                            echo(/binding id token file $ID_TOKEN_FILE/)
+                            env.RESULT = readFile ID_TOKEN_FILE
+                          }
+                        }""", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
         r.assertLogContains("binding id token file ****", b);
         EnvironmentAction env = b.getAction(EnvironmentAction.class);
@@ -74,7 +87,8 @@ public class IdTokenFileCredentialsTest {
         assertEquals(r.jenkins.getRootUrl() + "oidc", claims.getIssuer());
     }
 
-    @Test public void declarative() throws Exception {
+    @Test
+    void declarative() throws Exception {
         IdTokenFileCredentials c = new IdTokenFileCredentials(CredentialsScope.GLOBAL, "test", null);
         c.setAudience("https://service/");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
@@ -104,5 +118,4 @@ public class IdTokenFileCredentialsTest {
             getBody();
         System.out.println(claims);
     }
-
 }

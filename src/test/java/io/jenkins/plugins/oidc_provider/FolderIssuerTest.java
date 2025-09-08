@@ -40,26 +40,40 @@ import java.util.logging.Level;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
-import org.junit.ClassRule;
-import org.junit.Test;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
-import static org.junit.Assert.*;
-import org.junit.Rule;
-import org.jvnet.hudson.test.BuildWatcher;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.jvnet.hudson.test.LoggerRule;
+import org.jvnet.hudson.test.LogRecorder;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-public class FolderIssuerTest {
+@WithJenkins
+class FolderIssuerTest {
 
-    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
-    @Rule public JenkinsRule r = new JenkinsRule();
-    @Rule public LoggerRule logging = new LoggerRule().recordPackage(FolderIssuer.class, Level.FINE);
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+    
+    @SuppressWarnings("unused")
+    private final LogRecorder logging = new LogRecorder().recordPackage(FolderIssuer.class, Level.FINE);
 
-    @Test public void folderEndpoint() throws Exception {
+    private JenkinsRule r;
+    
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
+
+    @Test
+    void folderEndpoint() throws Exception {
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null));
         Folder middle = r.jenkins.createProject(Folder.class, "at the top").createProject(Folder.class, "middle");
         CredentialsProvider.lookupStores(middle).iterator().next().addCredentials(Domain.global(), new IdTokenStringCredentials(CredentialsScope.GLOBAL, "team", null));
@@ -82,7 +96,8 @@ public class FolderIssuerTest {
         wc.assertFails("oidc/job/at%20the%20top/job/middle/job/bottom/.well-known/openid-configuration", 404);
     }
 
-    @Test public void build() throws Exception {
+    @Test
+    void build() throws Exception {
         IdTokenStringCredentials global = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "global", null);
         global.setAudience("https://global/");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), global);
@@ -109,5 +124,4 @@ public class FolderIssuerTest {
         assertEquals(p.getAbsoluteUrl(), claims.getSubject());
         assertEquals("https://local/", claims.getAudience());
     }
-
 }
