@@ -29,24 +29,36 @@ import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import org.junit.ClassRule;
-import org.junit.Test;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
-import static org.junit.Assert.*;
-import org.junit.Rule;
-import org.jvnet.hudson.test.BuildWatcher;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-public class IdTokenStringCredentialsTest {
+@WithJenkins
+class IdTokenStringCredentialsTest {
 
-    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
 
-    @Rule public JenkinsRule r = new JenkinsRule();
+    private JenkinsRule r;
 
-    @Test public void smokes() throws Exception {
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
+
+    @Test
+    void smokes() throws Exception {
         IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
         c.setAudience("https://service/");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
@@ -71,7 +83,8 @@ public class IdTokenStringCredentialsTest {
         assertEquals(1, claims.get("build_number", Integer.class).intValue());
     }
 
-    @Test public void declarative() throws Exception {
+    @Test
+    void declarative() throws Exception {
         IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
         c.setAudience("https://service/");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
@@ -100,7 +113,8 @@ public class IdTokenStringCredentialsTest {
         assertEquals(1, claims.get("build_number", Integer.class).intValue());
     }
 
-    @Test public void alternateIssuer() throws Exception {
+    @Test
+    void alternateIssuer() throws Exception {
         IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
         c.setIssuer("https://some.issuer");
         CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
@@ -120,5 +134,4 @@ public class IdTokenStringCredentialsTest {
         assertEquals("https://some.issuer", claims.getIssuer());
         assertEquals(p.getAbsoluteUrl(), claims.getSubject());
     }
-
 }
