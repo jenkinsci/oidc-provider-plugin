@@ -26,16 +26,20 @@ package io.jenkins.plugins.oidc_provider.config;
 
 import java.util.Arrays;
 import java.util.Collections;
-import static org.junit.Assert.assertEquals;
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.JenkinsSessionRule;
 
-public class IdTokenConfigurationTest {
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.jvnet.hudson.test.junit.jupiter.JenkinsSessionExtension;
 
-    @Rule public JenkinsSessionRule rr = new JenkinsSessionRule();
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-    @Test public void gui() throws Throwable {
+class IdTokenConfigurationTest {
+
+    @RegisterExtension
+    private final JenkinsSessionExtension rr = new JenkinsSessionExtension();
+
+    @Test
+    void gui() throws Throwable {
         rr.then(r -> {
             IdTokenConfiguration cfg = IdTokenConfiguration.get();
             cfg.setClaimTemplates(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType())));
@@ -67,5 +71,4 @@ public class IdTokenConfigurationTest {
                 ClaimTemplate.xmlForm(cfg.getBuildClaimTemplates()));
         });
     }
-
 }
