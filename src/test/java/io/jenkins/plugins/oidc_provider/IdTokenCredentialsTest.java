@@ -289,4 +289,102 @@ class IdTokenCredentialsTest {
             envs.put("JOB_URL", "https://bogus.com/");
         }
     }
+
+    @Test
+    void scmClaims() throws Throwable {
+        rr.then(r -> {
+            var c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            var cfg = IdTokenConfiguration.get();
+            cfg.setBuildClaimTemplates(Arrays.asList(
+                new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()),
+                new ClaimTemplate("git_url", "${GIT_URL}", new StringClaimType()),
+                new ClaimTemplate("git_branch", "${GIT_BRANCH}", new StringClaimType()),
+                new ClaimTemplate("git_commit", "${GIT_COMMIT}", new StringClaimType())
+            ));
+            
+            var p = r.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition(
+                "withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {env.TOK = TOK}", 
+                true));
+            var b = r.buildAndAssertSuccess(p);
+            var idToken = b.getAction(EnvironmentAction.class).getEnvironment().get("TOK");
+            System.out.println(idToken);
+            var claims = Jwts.parserBuilder().
+                setSigningKey(c.publicKey()).
+                build().
+                parseClaimsJws(idToken).
+                getBody();
+            System.out.println(claims);
+            
+            assertEquals("https://github.com/example/repo.git", claims.get("git_url", String.class));
+            assertEquals("origin/main", claims.get("git_branch", String.class));
+            assertEquals("abc123def456", claims.get("git_commit", String.class));
+        });
+    }
+
+    @SuppressWarnings("unused")
+    @TestExtension("scmClaims")
+    public static final class GitScmContributor extends EnvironmentContributor {
+
+        @Override
+        public void buildEnvironmentFor(@NonNull Run r, @NonNull EnvVars envs, @NonNull TaskListener listener) {
+            envs.put("GIT_URL", "https://github.com/example/repo.git");
+            envs.put("GIT_BRANCH", "origin/main");
+            envs.put("GIT_COMMIT", "abc123def456");
+        }
+    }
+
+    @Issue("SECURITY-3574")
+    @Test
+    void spoofedClaimsScmLevel() throws Throwable {
+        rr.then(r -> {
+            var c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            var cfg = IdTokenConfiguration.get();
+            cfg.setBuildClaimTemplates(Arrays.asList(
+                new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()),
+                new ClaimTemplate("git_url", "${GIT_URL}", new StringClaimType())
+            ));
+            
+            var p = r.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition(
+                "withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {env.TOK = TOK}",
+                true));
+            var b = r.buildAndAssertSuccess(p);
+            
+            assertThat(b, logContains("Refusing to consider conflicting values"));
+            
+            var idToken = b.getAction(EnvironmentAction.class).getEnvironment().get("TOK");
+            System.out.println(idToken);
+            var claims = Jwts.parserBuilder().
+                setSigningKey(c.publicKey()).
+                build().
+                parseClaimsJws(idToken).
+                getBody();
+            System.out.println(claims);
+            
+            assertEquals("${GIT_URL}", claims.get("git_url", String.class));
+        });
+    }
+
+    @SuppressWarnings("unused")
+    @TestExtension("spoofedClaimsScmLevel")
+    public static final class ScmSpooferRun extends EnvironmentContributor {
+
+        @Override
+        public void buildEnvironmentFor(@NonNull Run r, @NonNull EnvVars envs, @NonNull TaskListener listener) {
+            envs.put("GIT_URL", "https://github.com/run-level/repo.git");
+        }
+    }
+
+    @SuppressWarnings("unused")
+    @TestExtension("spoofedClaimsScmLevel")
+    public static final class ScmSpooferJob extends EnvironmentContributor {
+
+        @Override
+        public void buildEnvironmentFor(@NonNull Job j, @NonNull EnvVars envs, @NonNull TaskListener listener) {
+            envs.put("GIT_URL", "https://github.com/job-level/repo.git");
+        }
+    }
 }
