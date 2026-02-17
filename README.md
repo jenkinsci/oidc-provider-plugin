@@ -114,6 +114,30 @@ You can add claims to all id tokens, those used during builds,
 or those used outside of builds (for example by other Jenkins plugins accepting string credentials).
 All applicable kinds of claim templates will be merged.
 
+### Using SCM information in claims
+
+If your build uses Git SCM (Source Code Management), you can include Git-related information in your id token claims.
+The following variables are available:
+
+* `${GIT_URL}` - The URL of the Git repository (e.g., `https://github.com/user/repo.git`)
+* `${GIT_BRANCH}` - The branch reference being built (e.g., `origin/master`, `upstream/main`, or `master`)
+* `${GIT_COMMIT}` - The commit SHA being built (e.g., `abc123def456...`)
+
+These variables can be used in claim templates, for example:
+
+```
+git_repository: ${GIT_URL}
+git_branch: ${GIT_BRANCH}
+git_sha: ${GIT_COMMIT}
+```
+
+**How it works:**
+
+* Git information is extracted from `BuildData` actions created by the Git plugin during checkout
+* For **Declarative Pipeline jobs**: Git checkout happens automatically before stages, so variables are available immediately
+* For **Scripted Pipeline jobs**: Use explicit `checkout scm` before calling `withCredentials`
+* For **Freestyle jobs**: Git checkout in build step populates `BuildData` automatically
+
 ## Examples
 
 Some tested usage examples follow. Please contribute others!
