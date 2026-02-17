@@ -234,17 +234,9 @@ class IdTokenCredentialsTest {
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
             var p = r.createProject(Folder.class, "dir").createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {env.TOK = TOK}", true));
-            var b = r.buildAndAssertSuccess(p);
-            var idToken = b.getAction(EnvironmentAction.class).getEnvironment().get("TOK");
-            System.out.println(idToken);
-            var claims = Jwts.parserBuilder().
-                setSigningKey(c.publicKey()).
-                build().
-                parseClaimsJws(idToken).
-                getBody();
-            System.out.println(claims);
-            assertEquals(/* p.getAbsoluteUrl() */ "${JOB_URL}", claims.getSubject());
+            var b = r.buildAndAssertStatus(Result.FAILURE, p);
             assertThat(b, logContains("Refusing to consider conflicting values"));
+            assertThat(b, logContains("Apparently unsubstituted claims: ${JOB_URL}"));
         });
     }
 
@@ -266,17 +258,9 @@ class IdTokenCredentialsTest {
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
             var p = r.createProject(Folder.class, "dir").createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {env.TOK = TOK}", true));
-            var b = r.buildAndAssertSuccess(p);
-            var idToken = b.getAction(EnvironmentAction.class).getEnvironment().get("TOK");
-            System.out.println(idToken);
-            var claims = Jwts.parserBuilder().
-                setSigningKey(c.publicKey()).
-                build().
-                parseClaimsJws(idToken).
-                getBody();
-            System.out.println(claims);
-            assertEquals(/* p.getAbsoluteUrl() */ "${JOB_URL}", claims.getSubject());
+            var b = r.buildAndAssertStatus(Result.FAILURE, p);
             assertThat(b, logContains("Refusing to consider conflicting values"));
+            assertThat(b, logContains("Apparently unsubstituted claims: ${JOB_URL}"));
         });
     }
 
