@@ -48,6 +48,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyFactory;
@@ -277,6 +278,11 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                 envs.add(env);
             }
         }
+
+        var scmEnv = extractGitInfoFromBuildData(build, listener);
+        if (!scmEnv.isEmpty()) {
+            envs.add(scmEnv);
+        }
         var merged = new EnvVars();
         envs.stream().flatMap(env -> env.entrySet().stream()).collect(Collectors.groupingBy(Map.Entry::getKey)).entrySet().stream().forEach(entry -> {
             var values = entry.getValue().stream().map(Map.Entry::getValue).collect(Collectors.toSet());
@@ -287,6 +293,94 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             }
         });
         return merged;
+    }
+
+    private static EnvVars extractGitInfoFromBuildData(Run<?, ?> build, TaskListener listener) {
+        var env = new EnvVars();
+        Object buildData = null;
+        
+        for (var action : build.getActions()) {
+            if (action.getClass().getName().equals("hudson.plugins.git.util.BuildData")) {
+                if (buildData == null) {
+                    buildData = action;
+                }
+                
+                try {
+                    Method getScmName = action.getClass().getMethod("getScmName");
+                    String scmName = (String) getScmName.invoke(action);
+                    if (scmName == null || scmName.isEmpty()) {
+                        buildData = action;
+                        break;
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.FINEST, "Could not determine scmName from BuildData", e);
+                }
+            }
+        }
+        
+        if (buildData != null) {
+            try {
+                extractGitCommit(buildData, env);
+                extractGitBranch(buildData, env);
+                extractGitUrl(buildData, env);
+            } catch (Exception e) {
+                LOGGER.log(Level.FINE, "Could not extract Git information from BuildData action", e);
+            }
+        }
+        
+        return env;
+    }
+
+    private static void extractGitCommit(Object buildData, EnvVars env) throws Exception {
+        Method getLastBuiltRevision = buildData.getClass().getMethod("getLastBuiltRevision");
+        Object revision = getLastBuiltRevision.invoke(buildData);
+        if (revision != null) {
+            Method getSha1String = revision.getClass().getMethod("getSha1String");
+            String commit = (String) getSha1String.invoke(revision);
+            if (commit != null && !commit.isEmpty()) {
+                env.put("GIT_COMMIT", commit);
+            }
+        }
+    }
+
+    private static void extractGitBranch(Object buildData, EnvVars env) throws Exception {
+        Method getLastBuiltRevision = buildData.getClass().getMethod("getLastBuiltRevision");
+        Object revision = getLastBuiltRevision.invoke(buildData);
+        if (revision == null) {
+            return;
+        }
+
+        Method getBranches = revision.getClass().getMethod("getBranches");
+        @SuppressWarnings("unchecked")
+        java.util.Set<?> branches = (java.util.Set<?>) getBranches.invoke(revision);
+        if (branches == null || branches.isEmpty()) {
+            return;
+        }
+
+        Object branch = branches.iterator().next();
+        Method getName = branch.getClass().getMethod("getName");
+        String branchName = (String) getName.invoke(branch);
+        if (branchName == null || branchName.isEmpty()) {
+            return;
+        }
+
+        if (branchName.startsWith("refs/remotes/")) {
+            branchName = branchName.substring("refs/remotes/".length());
+        }
+        
+        env.put("GIT_BRANCH", branchName);
+    }
+
+    private static void extractGitUrl(Object buildData, EnvVars env) throws Exception {
+        Method getRemoteUrls = buildData.getClass().getMethod("getRemoteUrls");
+        @SuppressWarnings("unchecked")
+        java.util.Set<?> remoteUrls = (java.util.Set<?>) getRemoteUrls.invoke(buildData);
+        if (remoteUrls != null && !remoteUrls.isEmpty()) {
+            String url = remoteUrls.iterator().next().toString();
+            if (url != null && !url.isEmpty()) {
+                env.put("GIT_URL", url);
+            }
+        }
     }
 
     protected @NonNull Issuer findIssuer() {
