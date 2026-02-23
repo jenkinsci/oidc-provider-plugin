@@ -105,7 +105,7 @@ class IdTokenCredentialsTest {
             creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             assertThat(creds, hasSize(1));
             assertThat(creds.get(0).getDescription(), is("my creds"));
-            assertThat("private key rotated by resaving", creds.get(0).publicKey().getModulus(), is(not(modulus.get())));
+            assertThat("private key retained by resaving", creds.get(0).publicKey().getModulus(), is(modulus.get()));
             creds.get(0).setIssuer(null);
             creds.get(0).setAudience(null);
             r.submit(r.createWebClient().goTo("credentials/store/system/domain/_/credential/test/update").getFormByName("update"));
