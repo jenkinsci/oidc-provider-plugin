@@ -24,6 +24,7 @@
 
 package io.jenkins.plugins.oidc_provider.config;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Descriptor;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -38,7 +39,7 @@ public final class BooleanClaimType extends ClaimType {
 
     @Extension public static final class DescriptorImpl extends Descriptor<ClaimType> {
 
-        @Override public String getDisplayName() {
+        @Override @NonNull public String getDisplayName() {
             return "boolean";
         }
 
