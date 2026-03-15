@@ -72,8 +72,7 @@ public abstract class Issuer {
                 LOGGER.fine(() -> "found " + store + " for " + context());
                 // TODO should we consider other domains?
                 for (Credentials c : store.getCredentials(Domain.global())) {
-                    if (c instanceof IdTokenCredentials) {
-                        IdTokenCredentials itc = (IdTokenCredentials) c;
+                    if (c instanceof IdTokenCredentials itc) {
                         credentials.putIfAbsent(itc.getId(), itc);
                     }
                 }
