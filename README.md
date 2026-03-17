@@ -310,28 +310,31 @@ pipeline {
     stage('artifactory access') {
       steps {
         withCredentials([string(credentialsId: 'id-token', variable: 'IDTOKEN')]) {
-            script {
-                def accessToken = sh(script: """
-                    curl -s -X POST "https://artifactory.acme.com/access/api/v1/oidc/token" \\
-                    -H 'Content-Type: application/json' \\
-                    -d '{
-                        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-                        "subject_token_type": "urn:ietf:params:oauth:token-type:id_token",
-                        "subject_token": "${IDTOKEN}",
-                        "identity_mapping_name": "Jenkins",
-                        "provider_name": "*************************"
-                    }' | jq -r '.access_token'
-                """, returnStdout: true).trim()
-                
-                // Use the accessToken to authenticate to Artifactory and perform actions
-            }
+            sh '''
+                #!/bin/bash
+                set +x # do not want the access token exposed
+                json_data=$(cat <<EOF
+{
+    "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+    "subject_token_type": "urn:ietf:params:oauth:token-type:id_token",
+    "subject_token": "$IDTOKEN",
+    "identity_mapping_name": "jenkins-q",
+    "provider_name": "jenkinsq-schaeffler-com"
+}
+EOF
+)
+                # get the token from artifactory
+                access_token=$(curl -X POST "https://artifactory.acme.com/access/api/v1/oidc/token" -H "Content-Type: application/json" -d "$json_data" | jq -r ".access_token")
+				
+                # use $access_token to authenticate to Artifactory and perform actions, e.g. with jfrog cli
+                #jf c add artifactory --artifactory-url https://artifactory.acme.com/artifactory --acces-token="$access_token"
+            '''
         }
       }
     }
   }
 }
 ```
-
 
 ## References
 
