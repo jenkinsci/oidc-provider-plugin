@@ -61,11 +61,9 @@ import java.security.spec.RSAPublicKeySpec;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -181,7 +179,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
      * @see <a href="https://openid.net/specs/openid-connect-core-1_0.html#IDToken">OpenID Connect list</a>
      * @see <a href="https://www.rfc-editor.org/rfc/rfc7519#section-4.1">JWT list</a>
      */
-    public static final Set<String> STANDARD_CLAIMS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+    public static final Set<String> STANDARD_CLAIMS = Set.of(
         Claims.ISSUER,
         Claims.AUDIENCE,
         Claims.EXPIRATION,
@@ -193,7 +191,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
         "azp",
         Claims.NOT_BEFORE,
         Claims.ID
-    )));
+    );
 
     protected final @NonNull String token() {
         IdTokenConfiguration cfg = IdTokenConfiguration.get();

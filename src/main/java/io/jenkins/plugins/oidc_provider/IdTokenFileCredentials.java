@@ -25,6 +25,7 @@
 package io.jenkins.plugins.oidc_provider;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.util.Secret;
 import java.io.ByteArrayInputStream;
@@ -66,7 +67,8 @@ public final class IdTokenFileCredentials extends IdTokenCredentials implements 
     @Symbol("idTokenFile")
     @Extension public static class DescriptorImpl extends IdTokenCredentialsDescriptor {
 
-        @Override public String getDisplayName() {
+        @Override @NonNull
+        public String getDisplayName() {
             return "OpenID Connect id token as file";
         }
 
