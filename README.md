@@ -327,7 +327,7 @@ EOF
                 access_token=$(curl -X POST "https://artifactory.acme.com/access/api/v1/oidc/token" -H "Content-Type: application/json" -d "$json_data" | jq -r ".access_token")
 				
                 # use $access_token to authenticate to Artifactory and perform actions, e.g. with jfrog cli
-                #jf c add artifactory --artifactory-url https://artifactory.acme.com/artifactory --acces-token="$access_token"
+                #jf c add artifactory --artifactory-url https://artifactory.acme.com/artifactory --access-token="$access_token"
             '''
         }
       }
