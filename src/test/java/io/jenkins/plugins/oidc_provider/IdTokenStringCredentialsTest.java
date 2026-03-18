@@ -29,6 +29,7 @@ import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import java.util.List;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -39,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
@@ -132,6 +134,26 @@ class IdTokenStringCredentialsTest {
             getBody();
         System.out.println(claims);
         assertEquals("https://some.issuer", claims.getIssuer());
+        assertEquals(p.getAbsoluteUrl(), claims.getSubject());
+    }
+
+    @Issue("https://github.com/jenkinsci/oidc-provider-plugin/issues/148")
+    @Test public void alternateDomain() throws Exception {
+        var c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+        CredentialsProvider.lookupStores(r.jenkins).iterator().next().addDomain(new Domain("restricted", null, List.of()), c);
+        var p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'ID_TOKEN', credentialsId: 'test')]) {env.RESULT = ID_TOKEN}", true));
+        var b = r.buildAndAssertSuccess(p);
+        var env = b.getAction(EnvironmentAction.class);
+        assertNotNull(env);
+        var idToken = env.getEnvironment().get("RESULT");
+        assertNotNull(idToken);
+        var claims = Jwts.parserBuilder().
+            setSigningKey(c.publicKey()).
+            build().
+            parseClaimsJws(idToken).
+            getBody();
+        System.out.println(claims);
         assertEquals(p.getAbsoluteUrl(), claims.getSubject());
     }
 }
