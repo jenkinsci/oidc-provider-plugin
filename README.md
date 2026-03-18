@@ -276,6 +276,66 @@ vault write auth/jwt/config oidc_discovery_url="<Issuer URI>" \
     bound_issuer="<Issuer URI>" default_role=my-role
 ```
 
+### Accessing Artifactory
+
+Artifactory supports OIDC for authentication, and you can use the plugin to authenticate to it from Jenkins.
+You will need to create an OIDC provider in Artifactory and configure it with the issuer URI from Jenkins.
+You need to do the following steps in Artifactory:
+1. Go to the Admin panel and navigate to Security » OIDC Integration.
+2. Click on "New OIDC Integration" and fill in the required fields:
+   - Name: A name for your OIDC integration (e.g., "Jenkins").
+   - Priority: A priority value for the integration (lower values have higher priority) (e.g., 1).
+   - Description: A description for your OIDC integration (optional).
+   - Claims JSON: A JSON object that defines the claims to be included in the id token. For example:
+   ```json
+   {
+     "sub": "https://jenkins.acme.com/job/my-job/**"
+   }
+   ```
+   (this example allows any job under `my-job` to authenticate)
+3. Click "Save" to create the OIDC integration.
+
+![Artifactory config](/demo/artifactory/identity_mapping_artifactory.png)
+
+
+Then you can use the id token credentials in your build to authenticate to Artifactory and perform actions such as uploading artifacts.
+
+An example how to use it within Jenkins pipeline:
+
+```groovy
+pipeline {
+  agent any
+
+  stages {
+    stage('artifactory access') {
+      steps {
+        withCredentials([string(credentialsId: 'id-token', variable: 'IDTOKEN')]) {
+            sh '''
+                #!/bin/bash
+                set +x # do not want the access token exposed
+                json_data=$(cat <<EOF
+{
+    "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+    "subject_token_type": "urn:ietf:params:oauth:token-type:id_token",
+    "subject_token": "$IDTOKEN",
+    "identity_mapping_name": "jenkins-q",
+    "provider_name": "jenkinsq-schaeffler-com"
+}
+EOF
+)
+                # get the token from artifactory
+                access_token=$(curl -X POST "https://artifactory.acme.com/access/api/v1/oidc/token" -H "Content-Type: application/json" -d "$json_data" | jq -r ".access_token")
+				
+                # use $access_token to authenticate to Artifactory and perform actions, e.g. with jfrog cli
+                #jf c add artifactory --artifactory-url https://artifactory.acme.com/artifactory --access-token="$access_token"
+            '''
+        }
+      }
+    }
+  }
+}
+```
+
 ## References
 
 Some relevant background reading. Not intended to be exhaustive.
