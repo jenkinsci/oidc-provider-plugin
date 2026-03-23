@@ -65,6 +65,7 @@ import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.jvnet.hudson.test.QueryUtils.waitUntilElementIsPresent;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -247,6 +248,9 @@ class IdTokenCredentialsTest {
         HtmlPage page = r.createWebClient().goTo("credentials/store/system/domain/_/credential/" + credentials.getId());
         HtmlElement button = page.getFirstByXPath("//button[normalize-space(.)='Update credential']");
         page = button.click();
+
+        waitUntilElementIsPresent(page, "form[name=updateCredentials]");
+
         return page.getFormByName("updateCredentials");
     }
 
