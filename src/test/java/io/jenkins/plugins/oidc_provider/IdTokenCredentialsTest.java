@@ -249,9 +249,7 @@ class IdTokenCredentialsTest {
         HtmlElement button = page.getFirstByXPath("//button[normalize-space(.)='Update credential']");
         page = button.click();
 
-        waitUntilElementIsPresent(page, "form[name=updateCredentials]");
-
-        return page.getFormByName("updateCredentials");
+        return (HtmlForm) waitUntilElementIsPresent(page, "form[name=updateCredentials]");
     }
 
     @SuppressWarnings("unused")
