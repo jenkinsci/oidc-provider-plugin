@@ -47,6 +47,7 @@ import io.jenkins.plugins.oidc_provider.config.StringClaimType;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -73,6 +74,7 @@ import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.TestExtension;
 import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
 import org.jvnet.hudson.test.junit.jupiter.JenkinsSessionExtension;
+import org.xml.sax.SAXException;
 
 class IdTokenCredentialsTest {
 
@@ -100,10 +102,7 @@ class IdTokenCredentialsTest {
             assertThat(creds.get(0).getIssuer(), is("https://issuer"));
             assertThat(creds.get(0).getAudience(), is("https://audience"));
             assertThat("private key retained by serialization", creds.get(0).publicKey().getModulus(), is(modulus.get()));
-            HtmlPage page = r.createWebClient().goTo("credentials/store/system/domain/_/credential/test");
-            HtmlElement button = page.getFirstByXPath("//button[normalize-space(.)='Update credential']");
-            page = button.click();
-            HtmlForm form = page.getFormByName("update");
+            HtmlForm form = getUpdateForm(r, creds.get(0));
             form.getInputByName("_.description").setValue("my creds");
             r.submit(form);
             creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
@@ -112,7 +111,7 @@ class IdTokenCredentialsTest {
             assertThat("private key rotated by resaving", creds.get(0).publicKey().getModulus(), is(not(modulus.get())));
             creds.get(0).setIssuer(null);
             creds.get(0).setAudience(null);
-            r.submit(r.createWebClient().goTo("credentials/store/system/domain/_/credential/test/update").getFormByName("update"));
+            r.submit(getUpdateForm(r, creds.get(0)));
             creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             assertThat(creds, hasSize(1));
             assertThat(creds.get(0).getIssuer(), is(nullValue()));
@@ -242,6 +241,13 @@ class IdTokenCredentialsTest {
             assertThat(b, logContains("Refusing to consider conflicting values"));
             assertThat(b, logContains("Apparently unsubstituted claims: ${JOB_URL}"));
         });
+    }
+
+    private HtmlForm getUpdateForm(JenkinsRule r, IdTokenStringCredentials credentials) throws IOException, SAXException {
+        HtmlPage page = r.createWebClient().goTo("credentials/store/system/domain/_/credential/" + credentials.getId());
+        HtmlElement button = page.getFirstByXPath("//button[normalize-space(.)='Update credential']");
+        page = button.click();
+        return page.getFormByName("updateCredentials");
     }
 
     @SuppressWarnings("unused")
