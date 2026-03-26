@@ -28,7 +28,7 @@
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
         <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
-        <jenkins.baseline>2.516</jenkins.baseline>
+        <jenkins.baseline>2.541</jenkins.baseline>
         <jenkins.version>${jenkins.baseline}.3</jenkins.version>
         <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
         <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
@@ -38,6 +38,11 @@
         <dependency>
             <groupId>io.jenkins.plugins</groupId>
             <artifactId>jjwt-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>credentials</artifactId>
+            <version>1498.vd852f8831d79</version>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
@@ -93,7 +98,7 @@
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
                 <artifactId>bom-${jenkins.baseline}.x</artifactId>
-                <version>5622.vc9c3051619f5</version>
+                <version>6166.va_a_8b_5eda_8ef5</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
