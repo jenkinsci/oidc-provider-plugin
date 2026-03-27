@@ -244,29 +244,11 @@ class IdTokenCredentialsTest {
         });
     }
 
-    // TODO: Remove this when credentials dependency is 1495 or newer
-    private int credentialsPluginBaseVersion = -1;
-
-    // TODO: Remove this when credentials dependency is 1495 or newer
-    private int getCredentialsPluginBaseVersion(JenkinsRule r) {
-        if (credentialsPluginBaseVersion == -1) {
-            String version = r.jenkins.getPluginManager().getPlugin("credentials").getVersion();
-            credentialsPluginBaseVersion = Integer.parseInt(version.split("[.]")[0]);
-        }
-        return credentialsPluginBaseVersion;
-    }
-
     private HtmlForm getUpdateForm(JenkinsRule r, IdTokenStringCredentials credentials) throws IOException, SAXException {
-        if (getCredentialsPluginBaseVersion(r) > 1494) {
-            HtmlPage page = r.createWebClient().goTo("credentials/store/system/domain/_/credential/" + credentials.getId());
-            HtmlElement button = page.getFirstByXPath("//button[normalize-space(.)='Update credential']");
-            page = button.click();
-            return (HtmlForm) waitUntilElementIsPresent(page, "form[name=updateCredentials]");
-        } else {
-            // TODO: Remove this when credentials dependency is 1495 or newer
-            HtmlForm form = r.createWebClient().goTo("credentials/store/system/domain/_/credential/test/update").getFormByName("update");
-            return form;
-        }
+        HtmlPage page = r.createWebClient().goTo("credentials/store/system/domain/_/credential/" + credentials.getId());
+        HtmlElement button = page.getFirstByXPath("//button[normalize-space(.)='Update credential']");
+        page = button.click();
+        return (HtmlForm) waitUntilElementIsPresent(page, "form[name=updateCredentials]");
     }
 
     @SuppressWarnings("unused")
