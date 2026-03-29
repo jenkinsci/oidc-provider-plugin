@@ -117,7 +117,7 @@ class IdTokenCredentialsTest {
             creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             if (!creds.get(0).getDescription().equals("my creds")) {
                 // Wait for form processing to finish, then read it again
-                Thread.sleep(500L);
+                Thread.sleep(1500L);
                 creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             }
             assertThat(creds, hasSize(1));
