@@ -54,6 +54,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import jenkins.model.Jenkins;
 import static jenkins.test.RunMatchers.logContains;
@@ -88,9 +89,11 @@ class IdTokenCredentialsTest {
 
     @Test
     void persistence() throws Throwable {
+        String id = "test-" + UUID.randomUUID();
+        String description = "description-" + UUID.randomUUID();
         AtomicReference<BigInteger> modulus = new AtomicReference<>();
         rr.then(r -> {
-            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, id, description);
             c.setIssuer("https://issuer");
             c.setAudience("https://audience");
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
@@ -99,12 +102,17 @@ class IdTokenCredentialsTest {
         rr.then(r -> {
             List<IdTokenStringCredentials> creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             assertThat(creds, hasSize(1));
-            assertThat(creds.get(0).getId(), is("test"));
+            assertThat(creds.get(0).getId(), is(id));
             assertThat(creds.get(0).getIssuer(), is("https://issuer"));
             assertThat(creds.get(0).getAudience(), is("https://audience"));
             assertThat("private key retained by serialization", creds.get(0).publicKey().getModulus(), is(modulus.get()));
             HtmlForm form = getUpdateForm(r, creds.get(0));
+            assertThat(form.getInputByName("_.id").getValue(), is(id));
+            assertThat(form.getInputByName("_.description").getValue(), is(description));
             form.getInputByName("_.description").setValue("my creds");
+            assertThat(form.getInputByName("_.description").getValue(), is("my creds"));
+            HtmlElement button = form.getFirstByXPath("//button[normalize-space(.)='Save']");
+            assertThat(button.getVisibleText(), is("Save"));
             r.submit(form);
             creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             assertThat(creds, hasSize(1));
