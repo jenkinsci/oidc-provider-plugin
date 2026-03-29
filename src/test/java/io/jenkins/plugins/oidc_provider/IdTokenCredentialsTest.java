@@ -115,6 +115,11 @@ class IdTokenCredentialsTest {
             assertThat(button.getVisibleText(), is("Save"));
             r.submit(form);
             creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
+            if (!creds.get(0).getDescription().equals("my creds")) {
+                // Wait for form processing to finish, then read it again
+                Thread.sleep(500L);
+                creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
+            }
             assertThat(creds, hasSize(1));
             assertThat(creds.get(0).getDescription(), is("my creds"));
             assertThat("private key rotated by resaving", creds.get(0).publicKey().getModulus(), is(not(modulus.get())));
