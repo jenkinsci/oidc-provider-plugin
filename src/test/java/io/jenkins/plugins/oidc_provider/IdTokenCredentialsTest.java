@@ -248,7 +248,7 @@ class IdTokenCredentialsTest {
         HtmlPage page = r.createWebClient().goTo("credentials/store/system/domain/_/credential/" + credentials.getId());
         HtmlElement button = page.getFirstByXPath("//button[normalize-space(.)='Update credential']");
         page = button.click();
-        return (HtmlForm) waitUntilElementIsPresent(page, "form[name=updateCredentials]");
+        return (HtmlForm) waitUntilElementIsPresent(page, "form[name='updateCredentials']");
     }
 
     @SuppressWarnings("unused")
