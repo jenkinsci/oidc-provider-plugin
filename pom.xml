@@ -101,7 +101,7 @@
                 <!-- TODO: Remove when this version or newer is available from plugin BOM -->
                 <groupId>org.jenkins-ci.plugins</groupId>
                 <artifactId>credentials</artifactId>
-                <version>1492.vcfb_5dc894a_e3</version>
+                <version>1499.va_f0e811253a_6</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
