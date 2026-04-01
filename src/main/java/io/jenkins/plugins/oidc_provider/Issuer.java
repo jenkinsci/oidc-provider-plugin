@@ -70,7 +70,7 @@ public abstract class Issuer {
             CredentialsStore store = p.getStore(context());
             if (store != null) {
                 LOGGER.fine(() -> "found " + store + " for " + context());
-                // TODO should we consider other domains?
+                // do *not* inspect other domains
                 for (Credentials c : store.getCredentials(Domain.global())) {
                     if (c instanceof IdTokenCredentials itc) {
                         credentials.putIfAbsent(itc.getId(), itc);

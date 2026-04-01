@@ -75,6 +75,9 @@ you will be given instructions on what static files to serve from it and their v
 
 To rotate the keypair, simply **Update** and re-**Save** (or otherwise recreate) the credentials.
 
+Credentials of these types are _not_ supported in alternate domains.
+Use the global domain.
+
 ### Registering the identity provider
 
 Refer to service-specific documentation for creating an “identity provider” or “pool” etc.
