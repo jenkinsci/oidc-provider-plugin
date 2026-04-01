@@ -26,6 +26,8 @@ package io.jenkins.plugins.oidc_provider;
 
 import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.CredentialsStoreAction;
+import com.cloudbees.plugins.credentials.domains.Domain;
 import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -80,6 +82,7 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.Stapler;
 import org.kohsuke.stapler.StaplerRequest2;
 
 public abstract class IdTokenCredentials extends BaseStandardCredentials {
@@ -171,6 +174,11 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
     RSAPublicKey publicKey() {
         return (RSAPublicKey) kp.getPublic();
+    }
+
+    public boolean isUsingAlternateDomain() {
+        var dw = Stapler.getCurrentRequest2().findAncestorObject(CredentialsStoreAction.DomainWrapper.class);
+        return dw == null ? false : !dw.getDomain().isGlobal();
     }
 
     /**
