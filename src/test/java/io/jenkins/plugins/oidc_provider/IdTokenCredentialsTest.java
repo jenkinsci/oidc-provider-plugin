@@ -45,6 +45,7 @@ import io.jenkins.plugins.oidc_provider.config.BooleanClaimType;
 import io.jenkins.plugins.oidc_provider.config.IntegerClaimType;
 import io.jenkins.plugins.oidc_provider.config.StringClaimType;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Header;
 import io.jsonwebtoken.Jwts;
 
 import java.io.IOException;
@@ -216,6 +217,42 @@ class IdTokenCredentialsTest {
         });
     }
 
+    @Test
+    void headers() throws Throwable {
+        rr.then(r -> {
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            IdTokenConfiguration cfg = IdTokenConfiguration.get();
+            cfg.setClaimTemplates(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType())));
+            cfg.setGlobalClaimTemplates(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType())));
+            cfg.setBuildClaimTemplates(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType())));
+            String idToken = c.getSecret().getPlainText();
+            System.out.println(idToken);
+            Header headers = Jwts.parserBuilder().
+                setSigningKey(c.publicKey()).    
+                build().
+                parse(idToken).
+                getHeader();
+            System.out.println(headers);
+            assertEquals("RS256", headers.get("alg"));
+            assertEquals("JWT", headers.get("typ"));
+            WorkflowJob p = r.createProject(Folder.class, "dir").createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {env.TOK = TOK}", true));
+            WorkflowRun b = r.buildAndAssertSuccess(p);
+            EnvironmentAction env = b.getAction(EnvironmentAction.class);
+            idToken = env.getEnvironment().get("TOK");
+            System.out.println(idToken);
+            headers = Jwts.parserBuilder().
+                setSigningKey(c.publicKey()).
+                build().
+                parse(idToken).
+                getHeader();
+            System.out.println(headers);
+            assertEquals("RS256", headers.get("alg"));
+            assertEquals("JWT", headers.get("typ"));        
+        });
+    }
+    
     @Test
     void invalidCustomClaims() throws Throwable {
         rr.then(r -> {
