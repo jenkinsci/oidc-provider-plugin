@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import jenkins.model.Jenkins;
 import static jenkins.test.RunMatchers.logContains;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -247,8 +248,10 @@ class IdTokenCredentialsTest {
     private HtmlForm getUpdateForm(JenkinsRule r, IdTokenStringCredentials credentials) throws IOException, SAXException {
         HtmlPage page = r.createWebClient().goTo("credentials/store/system/domain/_/credential/" + credentials.getId());
         HtmlElement button = page.getFirstByXPath("//button[normalize-space(.)='Update credential']");
-        page = button.click();
-        return (HtmlForm) waitUntilElementIsPresent(page, "form[name=updateCredentials]");
+        HtmlPage newPage = button.click();
+        HtmlForm form = (HtmlForm) waitUntilElementIsPresent(page, "form[name=updateCredentials]");
+        await().logging().until(() -> newPage.getWebClient().waitForBackgroundJavaScript(1), is(0));
+        return form;
     }
 
     @SuppressWarnings("unused")
