@@ -205,6 +205,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
         IdTokenConfiguration cfg = IdTokenConfiguration.get();
         JwtBuilder builder = Jwts.builder().
             setHeaderParam("kid", getId()).
+            setHeaderParam("typ", "JWT").
             setIssuer(issuer != null ? issuer : findIssuer().url()).
             setAudience(audience).
             setExpiration(Date.from(Instant.now().plus(cfg.getTokenLifetime(), ChronoUnit.SECONDS))).
