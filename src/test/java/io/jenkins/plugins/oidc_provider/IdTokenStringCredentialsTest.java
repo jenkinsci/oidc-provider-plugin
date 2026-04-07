@@ -28,7 +28,10 @@ import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -71,11 +74,16 @@ class IdTokenStringCredentialsTest {
         String idToken = env.getEnvironment().get("RESULT");
         assertNotNull(idToken);
         System.out.println(idToken);
-        Claims claims = Jwts.parserBuilder().
+        var jws = Jwts.parserBuilder().
             setSigningKey(c.publicKey()).
             build().
-            parseClaimsJws(idToken).
-            getBody();
+            parseClaimsJws(idToken);
+        var header = jws.getHeader();
+        var claims = jws.getBody();
+        System.out.println(header);
+        assertThat(header.getKeyId(), is("test"));
+        assertThat(header.getAlgorithm(), is("RS256"));
+        assertThat(header.getType(), is("JWT"));
         System.out.println(claims);
         assertEquals(r.jenkins.getRootUrl() + "oidc", claims.getIssuer());
         assertEquals(p.getAbsoluteUrl(), claims.getSubject());
