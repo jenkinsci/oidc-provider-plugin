@@ -31,6 +31,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -74,12 +75,12 @@ class IdTokenStringCredentialsTest {
         String idToken = env.getEnvironment().get("RESULT");
         assertNotNull(idToken);
         System.out.println(idToken);
-        var jws = Jwts.parserBuilder().
-            setSigningKey(c.publicKey()).
+        var jws = Jwts.parser().
+            verifyWith(c.publicKey()).
             build().
-            parseClaimsJws(idToken);
+            parseSignedClaims(idToken);
         var header = jws.getHeader();
-        var claims = jws.getBody();
+        var claims = jws.getPayload();
         System.out.println(header);
         assertThat(header.getKeyId(), is("test"));
         assertThat(header.getAlgorithm(), is("RS256"));
@@ -87,7 +88,7 @@ class IdTokenStringCredentialsTest {
         System.out.println(claims);
         assertEquals(r.jenkins.getRootUrl() + "oidc", claims.getIssuer());
         assertEquals(p.getAbsoluteUrl(), claims.getSubject());
-        assertEquals("https://service/", claims.getAudience());
+        assertThat(claims.getAudience(), contains("https://service/"));
         assertEquals(1, claims.get("build_number", Integer.class).intValue());
     }
 
@@ -112,11 +113,11 @@ class IdTokenStringCredentialsTest {
             "}", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
         String idToken = r.jenkins.getWorkspaceFor(p).child("tok").readToString();
-        Claims claims = Jwts.parserBuilder().
-            setSigningKey(c.publicKey()).
+        var claims = Jwts.parser().
+            verifyWith(c.publicKey()).
             build().
-            parseClaimsJws(idToken).
-            getBody();
+            parseSignedClaims(idToken).
+            getPayload();
         System.out.println(claims);
         assertEquals(1, claims.get("build_number", Integer.class).intValue());
     }
@@ -133,11 +134,11 @@ class IdTokenStringCredentialsTest {
         assertNotNull(env);
         String idToken = env.getEnvironment().get("RESULT");
         assertNotNull(idToken);
-        Claims claims = Jwts.parserBuilder().
-            setSigningKey(c.publicKey()).
+        var claims = Jwts.parser().
+            verifyWith(c.publicKey()).
             build().
-            parseClaimsJws(idToken).
-            getBody();
+            parseSignedClaims(idToken).
+            getPayload();
         System.out.println(claims);
         assertEquals("https://some.issuer", claims.getIssuer());
         assertEquals(p.getAbsoluteUrl(), claims.getSubject());
