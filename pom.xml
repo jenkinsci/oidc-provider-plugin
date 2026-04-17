@@ -9,7 +9,7 @@
     </parent>
     <groupId>io.jenkins.plugins</groupId>
     <artifactId>oidc-provider</artifactId>
-    <version>${changelist}</version>
+    <version>206.${changelist}</version>
     <packaging>hpi</packaging>
     <name>OpenID Connect Provider Plugin</name>
     <url>https://github.com/jenkinsci/${project.artifactId}-plugin</url>
