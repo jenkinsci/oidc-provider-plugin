@@ -103,6 +103,12 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!-- TODO https://github.com/jenkinsci/jjwt-api-plugin/pull/124 -->
+            <dependency>
+                <groupId>io.jenkins.plugins</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>0.13.0-139.vb_dc6c7b_b_1ea_9</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
     <repositories>

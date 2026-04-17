@@ -167,11 +167,11 @@ class IdTokenCredentialsTest {
             cfg.setTokenLifetime(60);
             String idToken = c.getSecret().getPlainText();
             System.out.println(idToken);
-            Claims claims = Jwts.parserBuilder().
-                setSigningKey(c.publicKey()).
+            var claims = Jwts.parser().
+                verifyWith(c.publicKey()).
                 build().
-                parseClaimsJws(idToken).
-                getBody();
+                parseSignedClaims(idToken).
+                getPayload();
 
             assertTrue(Instant.now().plus(61, ChronoUnit.SECONDS).isAfter(claims.getExpiration().toInstant()));
         });
@@ -188,11 +188,11 @@ class IdTokenCredentialsTest {
             cfg.setBuildClaimTemplates(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType())));
             String idToken = c.getSecret().getPlainText();
             System.out.println(idToken);
-            Claims claims = Jwts.parserBuilder().
-                setSigningKey(c.publicKey()).
+            var claims = Jwts.parser().
+                verifyWith(c.publicKey()).
                 build().
-                parseClaimsJws(idToken).
-                getBody();
+                parseSignedClaims(idToken).
+                getPayload();
             System.out.println(claims);
             assertEquals(r.jenkins.getRootUrl() + "oidc", claims.getIssuer());
             assertEquals("jenkins", claims.getSubject());
@@ -203,11 +203,11 @@ class IdTokenCredentialsTest {
             EnvironmentAction env = b.getAction(EnvironmentAction.class);
             idToken = env.getEnvironment().get("TOK");
             System.out.println(idToken);
-            claims = Jwts.parserBuilder().
-                setSigningKey(c.publicKey()).
+            claims = Jwts.parser().
+                verifyWith(c.publicKey()).
                 build().
-                parseClaimsJws(idToken).
-                getBody();
+                parseSignedClaims(idToken).
+                getPayload();
             System.out.println(claims);
             assertEquals(r.jenkins.getRootUrl() + "oidc", claims.getIssuer());
             assertEquals("dir/p", claims.getSubject());

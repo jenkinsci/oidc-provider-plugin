@@ -79,11 +79,11 @@ class IdTokenFileCredentialsTest {
         assertNotNull(env);
         String idToken = env.getEnvironment().get("RESULT");
         assertNotNull(idToken);
-        Claims claims = Jwts.parserBuilder().
-            setSigningKey(c.publicKey()).
+        var claims = Jwts.parser().
+            verifyWith(c.publicKey()).
             build().
-            parseClaimsJws(idToken).
-            getBody();
+            parseSignedClaims(idToken).
+            getPayload();
         assertEquals(r.jenkins.getRootUrl() + "oidc", claims.getIssuer());
     }
 
@@ -111,11 +111,11 @@ class IdTokenFileCredentialsTest {
             "}", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
         String idToken = s.getWorkspaceFor(p).child("tok").readToString();
-        Claims claims = Jwts.parserBuilder().
-            setSigningKey(c.publicKey()).
+        var claims = Jwts.parser().
+            verifyWith(c.publicKey()).
             build().
-            parseClaimsJws(idToken).
-            getBody();
+            parseSignedClaims(idToken).
+            getPayload();
         System.out.println(claims);
     }
 }
