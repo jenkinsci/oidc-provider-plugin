@@ -44,6 +44,8 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -112,16 +114,16 @@ class FolderIssuerTest {
         p.addProperty(new ParametersDefinitionProperty(new StringParameterDefinition("CREDS")));
         p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'ID_TOKEN', credentialsId: CREDS)]) {env.RESULT = ID_TOKEN}", true));
         WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("CREDS", "global"))));
-        Claims claims = Jwts.parserBuilder().setSigningKey(global.publicKey()).build().parseClaimsJws(b.getAction(EnvironmentAction.class).getEnvironment().get("RESULT")).getBody();
+        var claims = Jwts.parser().verifyWith(global.publicKey()).build().parseSignedClaims(b.getAction(EnvironmentAction.class).getEnvironment().get("RESULT")).getPayload();
         System.out.println(claims);
         assertEquals(r.getURL() + "oidc", claims.getIssuer());
         assertEquals(r.getURL() + "job/at%20the%20top/job/middle/job/bottom/job/p/", claims.getSubject());
-        assertEquals("https://global/", claims.getAudience());
+        assertThat(claims.getAudience(), contains("https://global/"));
         b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("CREDS", "team"))));
-        claims = Jwts.parserBuilder().setSigningKey(team.publicKey()).build().parseClaimsJws(b.getAction(EnvironmentAction.class).getEnvironment().get("RESULT")).getBody();
+        claims = Jwts.parser().verifyWith(team.publicKey()).build().parseSignedClaims(b.getAction(EnvironmentAction.class).getEnvironment().get("RESULT")).getPayload();
         System.out.println(claims);
         assertEquals(r.getURL() + "oidc/job/at%20the%20top/job/middle", claims.getIssuer());
         assertEquals(p.getAbsoluteUrl(), claims.getSubject());
-        assertEquals("https://local/", claims.getAudience());
+        assertThat(claims.getAudience(), contains("https://local/"));
     }
 }
