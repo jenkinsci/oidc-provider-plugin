@@ -47,6 +47,7 @@ import hudson.util.Secret;
 import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
 import io.jenkins.plugins.oidc_provider.config.IdTokenConfiguration;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ClaimsMutator;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import java.io.IOException;
@@ -203,13 +204,15 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
     protected final @NonNull String token() {
         IdTokenConfiguration cfg = IdTokenConfiguration.get();
-        JwtBuilder builder = Jwts.builder().
-            setHeaderParam("kid", getId()).
-            setHeaderParam("typ", "JWT").
-            setIssuer(issuer != null ? issuer : findIssuer().url()).
-            setAudience(audience).
-            setExpiration(Date.from(Instant.now().plus(cfg.getTokenLifetime(), ChronoUnit.SECONDS))).
-            setIssuedAt(new Date());
+        var iat = Instant.now();
+        var exp = iat.plus(cfg.getTokenLifetime(), ChronoUnit.SECONDS);
+        JwtBuilder builder = Jwts.builder().header().
+            add("kid", getId()).
+            add("typ", "JWT").and().
+            issuer(issuer != null ? issuer : findIssuer().url()).
+            audience().add(audience).and().
+            issuedAt(Date.from(iat)).
+            expiration(Date.from(exp));
         Map<String, String> env;
         if (build != null) {
             try {

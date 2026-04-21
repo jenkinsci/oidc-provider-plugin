@@ -109,6 +109,12 @@
                 <artifactId>credentials</artifactId>
                 <version>1492.vcfb_5dc894a_e3</version>
             </dependency>
+            <!-- TODO https://github.com/jenkinsci/jjwt-api-plugin/pull/124 -->
+            <dependency>
+                <groupId>io.jenkins.plugins</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>0.13.0-141.vd58b_a_9592b_6c</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
     <repositories>
