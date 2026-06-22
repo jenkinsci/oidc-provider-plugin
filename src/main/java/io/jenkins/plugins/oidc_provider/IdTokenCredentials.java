@@ -228,7 +228,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                 throw new RuntimeException(x);
             }
         } else {
-            // EnvVars.masterEnvVars might not be safe to expose
+            // EnvVars.masterEnvVars mright not be safe to expose
             env = Collections.singletonMap("JENKINS_URL", Jenkins.get().getRootUrl());
         }
         AtomicBoolean definedSub = new AtomicBoolean();

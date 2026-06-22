@@ -50,7 +50,7 @@ import org.kohsuke.stapler.StaplerRequest2;
     );
 
     private static final List<ClaimTemplate> DEFAULT_GLOBAL_CLAIM_TEMPLATES = Collections.singletonList(
-        new ClaimTemplate(Claims.SUBJECT, "${JENKINS_URL}", new StringClaimType()));
+        new ClaimTemplate(Claims.SUBJECT, "${JENKINS_URL}", new StringClaimType(), "", ""));
 
     public static @NonNull IdTokenConfiguration get() {
         return ExtensionList.lookupSingleton(IdTokenConfiguration.class);
