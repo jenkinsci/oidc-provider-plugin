@@ -218,6 +218,171 @@ whether or not the pool is in use.
 (Your access log will show the user agent as `google-thirdparty-credentials`.)
 GCP seems to tolerate any TLS certificate that can validate against a root chain.
 
+### Accessing Azure (Workload Identity Federation)
+
+You can use this plugin to authenticate Jenkins pipelines to Microsoft Azure without any secrets,
+using [Workload Identity Federation](https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation)
+with a User-Assigned Managed Identity (UAMI).
+
+#### How it works
+
+1. Jenkins issues a short-lived OIDC token (JWT) to the pipeline build
+2. The Terraform AzureRM provider (or Azure CLI) presents this token to Microsoft Entra ID
+3. Entra ID validates the token signature by fetching the JWKS from the Jenkins issuer URL
+4. If the issuer, audience, and subject claims match the federated credential configuration, Entra ID issues an Azure access token
+5. The pipeline uses the Azure access token to manage resources
+
+#### Important: OIDC metadata must be publicly accessible
+
+Microsoft Entra ID **must** be able to reach your Jenkins OIDC discovery and JWKS endpoints from the internet.
+Specifically, these two URLs must return valid JSON responses **without authentication**:
+
+- `{issuer}/.well-known/openid-configuration`
+- `{jwks_uri}` (as specified in the discovery document)
+
+If Jenkins is behind a firewall or WAF, you must allow public access to these paths.
+The plugin **does not** natively serve these endpoints over HTTP (as of v212).
+You may need to serve them via a reverse proxy, load balancer fixed-response rule, or static hosting.
+
+The OIDC metadata contains only public signing keys — no secrets are exposed.
+This is the same security model as GitHub Actions, GitLab CI, and all other OIDC providers.
+
+#### Issuer and subject claim behaviour
+
+When the credential is created **inside a Jenkins folder** (e.g., an Organisation Folder), the plugin sets:
+
+- **Issuer**: `https://your-jenkins.example.com/oidc/job/{FolderName}` (URL-encoded if the folder name contains spaces)
+- **Subject**: `https://your-jenkins.example.com/job/{FolderName}/job/{RepoName}/job/{BranchName}/`
+
+For multibranch pipelines from a GitLab/GitHub Organisation Folder scan, each branch gets a unique subject.
+Azure federated credentials require an **exact match** on the subject — wildcards are not supported.
+This means you need a separate federated credential for each branch that requires Azure authentication.
+
+**Note on URL encoding**: If folder or branch names contain special characters (e.g., `/` in `feature/my-branch`),
+the subject claim will contain **double URL-encoded** values (e.g., `%252F` rather than `%2F`).
+The federated credential subject must match this exactly.
+
+#### Setup steps
+
+**1. Create an OpenID Connect id token credential in Jenkins**
+
+Create the credential inside your Jenkins folder (e.g., your Organisation Folder).
+Set the audience to `api://AzureADTokenExchange`.
+
+After saving, note the **Issuer URI** shown on the credential page.
+
+**2. Create a User-Assigned Managed Identity in Azure**
+
+```bash
+az identity create \
+  --name "uami-jenkins-deploy-001" \
+  --resource-group "rg-devops-001" \
+  --location "uksouth"
+```
+
+Assign it the appropriate RBAC role (e.g., Contributor) on the target subscription or resource group.
+
+**3. Create a Federated Identity Credential on the UAMI**
+
+```bash
+az identity federated-credential create \
+  --name "fed-jenkins-main" \
+  --identity-name "uami-jenkins-deploy-001" \
+  --resource-group "rg-devops-001" \
+  --issuer "https://your-jenkins.example.com/oidc/job/Your%20Folder" \
+  --subject "https://your-jenkins.example.com/job/Your%20Folder/job/your-repo/job/main/" \
+  --audiences "api://AzureADTokenExchange"
+```
+
+**Important**: The `--subject` must match **exactly** what appears in the JWT `sub` claim.
+Run a test build and decode the token (see troubleshooting below) to confirm the exact value before creating the credential.
+
+**4. Store the UAMI client ID as a Jenkins credential**
+
+Store the UAMI's client ID as a secret text credential in Jenkins (e.g., `azure-client-id`).
+This is not sensitive (it's a public identifier), but keeping it in a credential avoids hardcoding.
+
+**5. Use in a pipeline with Terraform**
+
+```groovy
+pipeline {
+  agent any
+  environment {
+    ARM_USE_OIDC        = 'true'
+    ARM_TENANT_ID       = 'your-tenant-id'
+    ARM_SUBSCRIPTION_ID = 'your-subscription-id'
+  }
+  stages {
+    stage('Deploy') {
+      steps {
+        withCredentials([
+          string(credentialsId: 'azure-client-id', variable: 'ARM_CLIENT_ID'),
+          string(credentialsId: 'oidc-token', variable: 'ARM_OIDC_TOKEN')
+        ]) {
+          sh '''
+            terraform init
+            terraform plan -out=tfplan
+            terraform apply -auto-approve tfplan
+          '''
+        }
+      }
+    }
+  }
+}
+```
+
+The AzureRM Terraform provider automatically picks up `ARM_USE_OIDC`, `ARM_CLIENT_ID`, `ARM_TENANT_ID`,
+`ARM_SUBSCRIPTION_ID`, and `ARM_OIDC_TOKEN` environment variables.
+
+**6. Use in a pipeline with Azure CLI**
+
+```groovy
+withCredentials([
+  string(credentialsId: 'azure-client-id', variable: 'ARM_CLIENT_ID'),
+  string(credentialsId: 'oidc-token', variable: 'ARM_OIDC_TOKEN')
+]) {
+  sh '''
+    az login --service-principal \
+      --username $ARM_CLIENT_ID \
+      --tenant your-tenant-id \
+      --federated-token $ARM_OIDC_TOKEN
+
+    az group list --output table
+  '''
+}
+```
+
+#### What works and what doesn't
+
+| Scenario | Supported | Notes |
+|----------|-----------|-------|
+| Single branch (e.g., `main` only) deploying to Azure | ✅ Yes | One federated credential for the main branch subject |
+| Multiple branches each deploying to Azure | ⚠️ Partially | Each branch needs its own federated credential (Azure requires exact subject match) |
+| Wildcard subject matching | ❌ No | Azure does not support wildcards in federated credential subjects |
+| Custom subject claim (e.g., repo name only, without branch) | ⚠️ Depends | Only works with root-level credentials; folder-scoped credentials always include the full job URL as subject |
+| Non-public Jenkins (behind firewall) | ❌ No | Entra ID must be able to fetch the JWKS from the issuer URL over the public internet |
+| Token refresh mid-build | ❌ No | The token is generated once when `withCredentials` is entered; long-running builds may see token expiry |
+
+#### Troubleshooting
+
+**Decode the token to check claims:**
+
+```groovy
+withCredentials([string(credentialsId: 'oidc-token', variable: 'TOKEN')]) {
+  sh '''
+    echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | python3 -m json.tool
+  '''
+}
+```
+
+**Common errors:**
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `AADSTS700213: No matching federated identity record` | Subject claim doesn't match | Decode the token, copy the exact `sub` value, use it in `--subject` |
+| `AADSTS90061: Request to External OIDC endpoint failed` | Azure can't reach the OIDC metadata endpoint | Ensure `{issuer}/.well-known/openid-configuration` is publicly accessible without auth |
+| `AADSTS700024: Client assertion is not within its valid time range` | Token expired | Reduce build time between `withCredentials` entry and Azure API call |
+
 ### Accessing HashiCorp Vault
 
 You will enable and configure `jwt` authentication and use a role for a specific pipeline job.
@@ -346,6 +511,13 @@ Some relevant background reading. Not intended to be exhaustive.
 ### AWS
 
 * [About web identity federation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html)
+
+### Azure
+
+* [Workload identity federation](https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation) (introduction)
+* [Create a federated identity credential on a user-assigned managed identity](https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation-create-trust-user-assigned-managed-identity)
+* [Terraform AzureRM provider OIDC authentication](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/guides/service_principal_oidc)
+* [Azure CLI federated login](https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli-service-principal#sign-in-with-a-federated-token)
 
 ### GCP
 
