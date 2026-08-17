@@ -41,6 +41,8 @@ import hudson.model.EnvironmentContributor;
 import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.security.ACL;
+import hudson.security.ACLContext;
 import hudson.util.FormValidation;
 import hudson.util.LogTaskListener;
 import hudson.util.Secret;
@@ -304,10 +306,16 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
         if (context == null) {
             return ExtensionList.lookupSingleton(RootIssuer.class);
         } else {
-            for (Issuer.Factory f : ExtensionList.lookup(Issuer.Factory.class)) {
-                for (Issuer i : f.forContext(context)) {
-                    if (i.credentials().contains(this)) {
-                        return i;
+            // Issuer.credentials enumerates credentials stores, which only expose their contents to an
+            // ambient authentication holding CredentialsProvider.VIEW; the build identity (from a
+            // QueueItemAuthenticator) need not hold it, whereas the credentials were already resolved
+            // and bound to this build as ACL.SYSTEM2. Compare Keys.doDynamic.
+            try (ACLContext ignored = ACL.as2(ACL.SYSTEM2)) {
+                for (Issuer.Factory f : ExtensionList.lookup(Issuer.Factory.class)) {
+                    for (Issuer i : f.forContext(context)) {
+                        if (i.credentials().contains(this)) {
+                            return i;
+                        }
                     }
                 }
             }
