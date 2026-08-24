@@ -27,12 +27,12 @@
     </scm>
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
-        <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
-        <jenkins.baseline>2.541</jenkins.baseline>
-        <jenkins.version>${jenkins.baseline}.3</jenkins.version>
+        <jenkins.baseline>2.568</jenkins.baseline>
+        <jenkins.version>${jenkins.baseline}.1</jenkins.version>
         <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
         <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
         <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
+        <banObsoleteDependencyOverrides.skip>false</banObsoleteDependencyOverrides.skip>
     </properties>
     <dependencies>
         <dependency>
@@ -93,21 +93,37 @@
             <version>4.3.0</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>git</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>git</artifactId>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>scm-api</artifactId>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
                 <artifactId>bom-${jenkins.baseline}.x</artifactId>
-                <version>6210.v69ea_fd8a_f010</version>
+                <version>6641.vfe1b_b_3c48a_4a_</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- TODO https://github.com/jenkinsci/jjwt-api-plugin/pull/124 -->
             <dependency>
-                <groupId>io.jenkins.plugins</groupId>
-                <artifactId>jjwt-api</artifactId>
-                <version>0.13.0-141.vd58b_a_9592b_6c</version>
+                <groupId>org.jenkins-ci.plugins.workflow</groupId>
+                <artifactId>workflow-job</artifactId>
+                <version>1592.va_c6b_e29dc070</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
