@@ -117,6 +117,10 @@ You can add claims to all id tokens, those used during builds,
 or those used outside of builds (for example by other Jenkins plugins accepting string credentials).
 All applicable kinds of claim templates will be merged.
 
+**Read the inline help carefully** regarding variables that may be set in claims.
+In particular, SCM-defined variables (typically `GIT_*`) are _not_ trustworthy
+and should never be used to gate access control decisions.
+
 ## Examples
 
 Some tested usage examples follow. Please contribute others!
