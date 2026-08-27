@@ -20,4 +20,7 @@
     and receive a JWT claim with <code>${GIT_BRANCH}</code>, <code>${GIT_URL}</code>, etc. set to whatever the pipeline author picked.
     Such claims may be useful for troubleshooting or (under certain circumstances) auditing,
     but they should never be used for access control.
+    <code>${SCM_REVISION}</code> for a multibranch project <em>is</em> trustworthy for auditing
+    (it is set before the build even starts),
+    though it would not generally be useful for access control anyway.
 </p>
