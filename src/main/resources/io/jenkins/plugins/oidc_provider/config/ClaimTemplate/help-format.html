@@ -1,6 +1,23 @@
-<div>
+<p>
     The format for the claim value, with <code>$VAR</code> or <code>${VAR}</code> substitutions.
     <code>JENKINS_URL</code> is always defined;
     in builds, see <a href="${rootURL}/env-vars.html/" rel="noopener noreferrer" target="_blank">environment variable reference</a>.
     Example: <code>jenkins:${BRANCH_NAME}:${BUILD_NUMBER}</code>
-</div>
+</p>
+<p>
+    <strong>Warning:</strong> think carefully about which claims you are offering and why.
+    If a relying party is making access control decisions based on claims,
+    you should ensure that the values cannot be spoofed by a malicious impostor.
+    For example, <code>${JOB_NAME}</code> is defined by Jenkins and cannot be overridden by a pipeline,
+    so a JWT claim using this variable indeed proves that the JWT was issued by Jenkins for that job.
+    For example, you might permit deployments from the <code>repo/main</code> branch project but not feature/PR branches,
+    and the claim value can be used to enforce that.
+    (<code>${BRANCH_NAME}</code> for a multibranch pipeline is also defined by Jenkins and cannot be overridden by a pipeline,
+    though on its own it does not prove that the pipeline is running in a specific <em>repository</em>—just the branch name.)
+    SCM-specific variables such as <code>${GIT_BRANCH}</code>, by contrast,
+    are set while the build runs according to actual source code checkouts.
+    Thus any build of any job could check out the <code>main</code> branch of some other repository
+    and receive a JWT claim with <code>${GIT_BRANCH}</code>, <code>${GIT_URL}</code>, etc. set to whatever the pipeline author picked.
+    Such claims may be useful for troubleshooting or (under certain circumstances) auditing,
+    but they should never be used for access control.
+</p>
