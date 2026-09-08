@@ -98,6 +98,8 @@ class KeysTest {
         assertEquals("AQAB", key.getString("e"));
         assertEquals("RS256", key.getString("alg"));
         assertEquals("sig", key.getString("use"));
+        byte[] n = java.util.Base64.getUrlDecoder().decode(key.getString("n"));
+        assertEquals(256, n.length, "RSA-2048 modulus must encode to 256 bytes with no leading zero sign byte (RFC 7518 §6.3.1.1)");
     }
 
     @Issue("https://github.com/jenkinsci/oidc-provider-plugin/issues/21")

@@ -31,7 +31,9 @@ import hudson.model.InvisibleAction;
 import hudson.model.UnprotectedRootAction;
 import hudson.security.ACL;
 import hudson.security.ACLContext;
+import java.math.BigInteger;
 import java.security.interfaces.RSAPublicKey;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.logging.Logger;
 import net.sf.json.JSONArray;
@@ -101,8 +103,22 @@ import org.kohsuke.stapler.StaplerRequest2;
             accumulate("kty", "RSA").
             accumulate("alg", "RS256").
             accumulate("use", "sig").
-            accumulate("n", encoder.encodeToString(key.getModulus().toByteArray())).
-            accumulate("e", encoder.encodeToString(key.getPublicExponent().toByteArray()));
+            accumulate("n", encoder.encodeToString(unsigned(key.getModulus()))).
+            accumulate("e", encoder.encodeToString(unsigned(key.getPublicExponent())));
+    }
+
+    /**
+     * Big-endian unsigned encoding of {@code value}, without the leading zero byte that
+     * {@link BigInteger#toByteArray} prepends when the high bit is set. RFC 7518 §6.3.1.1
+     * requires the minimum number of octets; strict consumers such as AWS STS reject the
+     * zero-padded form (and treat it as a different key size).
+     */
+    private static byte[] unsigned(BigInteger value) {
+        byte[] bytes = value.toByteArray();
+        if (bytes.length > 1 && bytes[0] == 0) {
+            return Arrays.copyOfRange(bytes, 1, bytes.length);
+        }
+        return bytes;
     }
 
     /**
