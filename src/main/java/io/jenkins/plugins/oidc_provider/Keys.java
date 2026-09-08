@@ -31,10 +31,9 @@ import hudson.model.InvisibleAction;
 import hudson.model.UnprotectedRootAction;
 import hudson.security.ACL;
 import hudson.security.ACLContext;
-import java.math.BigInteger;
-import java.security.interfaces.RSAPublicKey;
-import java.util.Arrays;
-import java.util.Base64;
+import io.jsonwebtoken.security.JwkSetBuilder;
+import io.jsonwebtoken.security.Jwks;
+import io.jsonwebtoken.security.PublicJwk;
 import java.util.logging.Logger;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -67,17 +66,15 @@ import org.kohsuke.stapler.StaplerRequest2;
             } else {
                 i = findIssuer(path, JWKS);
                 if (i != null) {
-                    // pending https://github.com/jwtk/jjwt/issues/236
-                    // compare https://github.com/jenkinsci/blueocean-plugin/blob/1f92e1624287e7588fc89aa5ce4e4147dd00f3d7/blueocean-jwt/src/main/java/io/jenkins/blueocean/auth/jwt/SigningPublicKey.java#L45-L52
-                    JSONArray keys = new JSONArray();
+                    JwkSetBuilder set = Jwks.set();
                     for (IdTokenCredentials creds : i.credentials()) {
                         if (creds.getIssuer() != null) {
                             LOGGER.fine(() -> "declining to serve key for " + creds.getId() + " since it would be served from " + creds.getIssuer());
                             continue;
                         }
-                        keys.element(key(creds));
+                        set.add(jwk(creds));
                     }
-                    return new JSONObject().accumulate("keys", keys);
+                    return JSONObject.fromObject(set.build());
                 }
             }
             throw HttpResponses.notFound();
@@ -95,30 +92,18 @@ import org.kohsuke.stapler.StaplerRequest2;
             accumulate("token_endpoint", "https://unimplemented");
     }
 
-    static JSONObject key(IdTokenCredentials creds) {
-        RSAPublicKey key = creds.publicKey();
-        Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
-        return new JSONObject().
-            accumulate("kid", creds.getId()).
-            accumulate("kty", "RSA").
-            accumulate("alg", "RS256").
-            accumulate("use", "sig").
-            accumulate("n", encoder.encodeToString(unsigned(key.getModulus()))).
-            accumulate("e", encoder.encodeToString(unsigned(key.getPublicExponent())));
-    }
-
     /**
-     * Big-endian unsigned encoding of {@code value}, without the leading zero byte that
-     * {@link BigInteger#toByteArray} prepends when the high bit is set. RFC 7518 §6.3.1.1
-     * requires the minimum number of octets; strict consumers such as AWS STS reject the
-     * zero-padded form (and treat it as a different key size).
+     * The public JWK for a credential. jjwt encodes the RSA modulus and exponent as
+     * minimal unsigned Base64urlUInt values (RFC 7518 §6.3.1.1) — no leading zero sign
+     * byte, which strict consumers such as AWS STS reject (issue #205).
      */
-    private static byte[] unsigned(BigInteger value) {
-        byte[] bytes = value.toByteArray();
-        if (bytes.length > 1 && bytes[0] == 0) {
-            return Arrays.copyOfRange(bytes, 1, bytes.length);
-        }
-        return bytes;
+    static PublicJwk<?> jwk(IdTokenCredentials creds) {
+        return Jwks.builder().
+            key(creds.publicKey()).
+            id(creds.getId()).
+            algorithm("RS256").
+            publicKeyUse("sig").
+            build();
     }
 
     /**

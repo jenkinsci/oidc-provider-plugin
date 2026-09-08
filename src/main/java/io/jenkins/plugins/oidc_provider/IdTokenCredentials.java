@@ -50,6 +50,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ClaimsMutator;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Jwks;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -77,7 +78,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import jenkins.model.Jenkins;
-import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -385,7 +385,7 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
             if (c == null) {
                 throw HttpResponses.notFound();
             }
-            return new JSONObject().accumulate("keys", new JSONArray().element(Keys.key(c)));
+            return JSONObject.fromObject(Jwks.set().add(Keys.jwk(c)).build());
         }
 
     }
