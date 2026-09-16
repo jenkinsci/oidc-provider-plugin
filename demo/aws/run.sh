@@ -203,5 +203,5 @@ helm install --wait \
 	jenkins \
 	jenkins/jenkins
 echo 'You will be able to log in as user admin with this password (accept the self-signed certificate):'
-kubectl exec sts/jenkins -- cat /run/secrets/chart-admin-password && echo
+kubectl exec sts/jenkins -- cat /run/secrets/additional/chart-admin-password && echo
 echo "Now try running: https://$host/job/use-oidc/"
