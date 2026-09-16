@@ -37,8 +37,11 @@ import io.jenkins.plugins.oidc_provider.config.StringClaimType;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import java.util.List;
+import jenkins.branch.BranchSource;
+import jenkins.plugins.git.GitSCMSource;
 import jenkins.plugins.git.GitSampleRepoRule;
 import jenkins.plugins.git.junit.jupiter.WithGitSampleRepo;
+import jenkins.plugins.git.traits.BranchDiscoveryTrait;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
@@ -49,6 +52,7 @@ import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject;
 
 @WithJenkins
 @WithGitSampleRepo
@@ -66,7 +70,7 @@ final class ScmClaimsTest {
         IdTokenConfiguration.get().setBuildClaimTemplates(List.of(new ClaimTemplate(Claims.SUBJECT, "${JOB_URL}", new StringClaimType()), new ClaimTemplate("commit_hash", "${GIT_COMMIT}", new StringClaimType())));
         var c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
         CredentialsProvider.lookupStores(j.jenkins).iterator().next().addCredentials(Domain.global(), c);
-        var p = j.jenkins.createProject(WorkflowJob.class, "p");
+        var p = j.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("""
             node {
               git REPO
@@ -87,6 +91,48 @@ final class ScmClaimsTest {
                 getPayload();
         System.out.println(claims);
         assertThat(claims.get("commit_hash", String.class), is(commit));
+    }
+
+    @Test void multibranch(JenkinsRule j, GitSampleRepoRule repo) throws Exception {
+        repo.init();
+        repo.write("Jenkinsfile", """
+            withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {
+              env.TOK = TOK
+            }
+            """);
+        repo.git("add", "Jenkinsfile");
+        repo.git("commit", "--message=stuff");
+        var commit = repo.head();
+        IdTokenConfiguration.get().setBuildClaimTemplates(List.of(
+            new ClaimTemplate(Claims.SUBJECT, "${JOB_URL}", new StringClaimType()),
+            new ClaimTemplate("commit", "${SCM_REVISION}", new StringClaimType()),
+            new ClaimTemplate("branch", "${BRANCH_NAME}", new StringClaimType())));
+        var c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+        CredentialsProvider.lookupStores(j.jenkins).iterator().next().addCredentials(Domain.global(), c);
+        var mp = j.createProject(WorkflowMultiBranchProject.class, "p");
+        var source = new GitSCMSource(repo.toString());
+        source.getTraits().add(new BranchDiscoveryTrait());
+        mp.getSourcesList().add(new BranchSource(source));
+        j.jenkins.setQuietPeriod(0);
+        mp.scheduleBuild2(0).getFuture().get();
+        var indexing = mp.getIndexing();
+        System.out.println("---%<--- " + indexing.getUrl());
+        indexing.writeWholeLogTo(System.out);
+        System.out.println("---%<--- ");
+        var p = mp.getItem("master");
+        j.waitUntilNoActivity();
+        var b = p.getLastBuild();
+        j.assertBuildStatusSuccess(b);
+        var idToken = b.getAction(EnvironmentAction.class).getEnvironment().get("TOK");
+        System.out.println(idToken);
+        var claims = Jwts.parser().
+                verifyWith(c.publicKey()).
+                build().
+                parseSignedClaims(idToken).
+                getPayload();
+        System.out.println(claims);
+        assertThat(claims.get("commit", String.class), is(commit));
+        assertThat(claims.get("branch", String.class), is("master"));
     }
 
 }
