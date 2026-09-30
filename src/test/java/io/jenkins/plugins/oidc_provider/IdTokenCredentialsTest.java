@@ -105,6 +105,7 @@ class IdTokenCredentialsTest {
             assertThat(creds, hasSize(1));
             assertThat("keypair replaced on explicit request", creds.get(0).publicKey().getModulus(), is(not(before)));
             assertThat(d.doRotateKeypair("nonexistent").kind, is(FormValidation.Kind.ERROR));
+            assertThat(d.doRotateKeypair("").kind, is(FormValidation.Kind.ERROR));
         });
     }
 
@@ -119,6 +120,19 @@ class IdTokenCredentialsTest {
             // reconfiguring constructs a new object with the same ID
             IdTokenStringCredentials again = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "folder-cred", "updated");
             assertThat("keypair retained for credentials outside the root stores", again.publicKey().getModulus(), is(before));
+            IdTokenStringCredentials.DescriptorImpl d = r.jenkins.getDescriptorByType(IdTokenStringCredentials.DescriptorImpl.class);
+            assertThat(d.doRotateKeypair("folder-cred").kind, is(FormValidation.Kind.OK));
+            IdTokenStringCredentials rotated = (IdTokenStringCredentials) store.getCredentials(Domain.global()).get(0);
+            assertThat("rotation reaches credentials outside the root stores", rotated.publicKey().getModulus(), is(not(before)));
+        });
+    }
+
+    @Test
+    void blankIdGetsItsOwnKeypair() throws Throwable {
+        rr.then(r -> {
+            IdTokenStringCredentials a = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "", null);
+            IdTokenStringCredentials b = new IdTokenStringCredentials(CredentialsScope.GLOBAL, null, null);
+            assertThat("a generated ID must not adopt a foreign keypair", a.publicKey().getModulus(), is(not(b.publicKey().getModulus())));
         });
     }
 
