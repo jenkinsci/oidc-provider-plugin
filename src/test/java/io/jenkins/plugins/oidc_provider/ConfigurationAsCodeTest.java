@@ -26,6 +26,7 @@ package io.jenkins.plugins.oidc_provider;
 
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
+import io.jenkins.plugins.casc.ConfigurationAsCode;
 import io.jenkins.plugins.casc.misc.ConfiguredWithCode;
 import io.jenkins.plugins.casc.misc.JenkinsConfiguredWithCodeRule;
 import io.jenkins.plugins.casc.misc.junit.jupiter.WithJenkinsConfiguredWithCode;
@@ -34,6 +35,7 @@ import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
 import io.jenkins.plugins.oidc_provider.config.IdTokenConfiguration;
 import io.jenkins.plugins.oidc_provider.config.IntegerClaimType;
 import io.jenkins.plugins.oidc_provider.config.StringClaimType;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collections;
 import static org.hamcrest.Matchers.*;
@@ -55,6 +57,19 @@ class ConfigurationAsCodeTest {
         IdTokenFileCredentials c2 = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenFileCredentials.class, r.jenkins, null, Collections.emptyList()).get(0);
         assertThat(c2.getId(), is("my-jwt-2"));
         assertThat(c2.getAudience(), is(nullValue()));
+    }
+
+    @ConfiguredWithCode("jcasc.yaml")
+    @Test
+    void keypairRetainedAcrossReload(JenkinsConfiguredWithCodeRule r) throws Exception {
+        BigInteger before = credential(r).publicKey().getModulus();
+        // as a live reload would: apply the same document again
+        ConfigurationAsCode.get().configure(getClass().getResource("jcasc.yaml").toExternalForm());
+        assertThat("keypair retained when the document is applied again", credential(r).publicKey().getModulus(), is(before));
+    }
+
+    private static IdTokenStringCredentials credential(JenkinsConfiguredWithCodeRule r) {
+        return CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList()).get(0);
     }
 
     @ConfiguredWithCode("global.yaml")
