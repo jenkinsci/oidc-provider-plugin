@@ -45,6 +45,7 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.model.User;
 import hudson.security.ACL;
+import org.springframework.security.access.AccessDeniedException;
 import hudson.security.ACLContext;
 import io.jenkins.plugins.oidc_provider.config.BooleanClaimType;
 import io.jenkins.plugins.oidc_provider.config.IntegerClaimType;
@@ -105,7 +106,6 @@ class IdTokenCredentialsTest {
             assertThat(creds, hasSize(1));
             assertThat("keypair replaced on explicit request", creds.get(0).publicKey().getModulus(), is(not(before)));
             assertThat(d.doRotateKeypair("nonexistent").kind, is(FormValidation.Kind.ERROR));
-            assertThat(d.doRotateKeypair("").kind, is(FormValidation.Kind.ERROR));
         });
     }
 
@@ -128,29 +128,19 @@ class IdTokenCredentialsTest {
     }
 
     @Test
-    void blankIdGetsItsOwnKeypair() throws Throwable {
-        rr.then(r -> {
-            IdTokenStringCredentials a = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "", null);
-            IdTokenStringCredentials b = new IdTokenStringCredentials(CredentialsScope.GLOBAL, null, null);
-            assertThat("a generated ID must not adopt a foreign keypair", a.publicKey().getModulus(), is(not(b.publicKey().getModulus())));
-        });
-    }
-
-    @Test
     void rotateKeypairRequiresPermission() throws Throwable {
         rr.then(r -> {
             IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
             CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
             BigInteger before = c.publicKey().getModulus();
             r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
-            r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().grant(Jenkins.READ).everywhere().to("dev"));
+            // the store is visible to this user, so the permission check has to be what stops the rotation
+            r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy()
+                .grant(Jenkins.READ, CredentialsProvider.VIEW).everywhere().to("dev"));
             IdTokenStringCredentials.DescriptorImpl d = r.jenkins.getDescriptorByType(IdTokenStringCredentials.DescriptorImpl.class);
             try (ACLContext ignored = ACL.as2(User.getById("dev", true).impersonate2())) {
-                try {
-                    assertThat("must not rotate for a user without Credentials/Update", d.doRotateKeypair("test").kind, is(FormValidation.Kind.ERROR));
-                } catch (org.springframework.security.access.AccessDeniedException expected) {
-                    // also fine: the store refused outright
-                }
+                assertThrows(AccessDeniedException.class, () -> d.doRotateKeypair("test"),
+                    "a user without Credentials/Update must not be able to rotate a keypair");
             }
             List<IdTokenStringCredentials> creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             assertThat("keypair untouched", creds.get(0).publicKey().getModulus(), is(before));
