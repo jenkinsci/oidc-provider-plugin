@@ -139,24 +139,8 @@ security:
       format: ^${BUILD_NUMBER}
       type: integer
       optional: false
-    - name: branch
-      format: ^${BRANCH_NAME}
-      type: string
-      optional: true
     - name: change_id
       format: ^${CHANGE_ID}
-      type: string
-      optional: true
-    - name: change_branch
-      format: ^${CHANGE_BRANCH}
-      type: string
-      optional: true
-    - name: change_target
-      format: ^${CHANGE_TARGET}
-      type: string
-      optional: true
-    - name: tag
-      format: ^${TAG_NAME}
       type: string
       optional: true
 ```

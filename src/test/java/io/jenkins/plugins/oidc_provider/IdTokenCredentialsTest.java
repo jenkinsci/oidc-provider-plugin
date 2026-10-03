@@ -217,6 +217,7 @@ class IdTokenCredentialsTest {
         });
     }
 
+    @Issue("https://github.com/jenkinsci/oidc-provider-plugin/issues/199")
     @Test
     void optionalBuildClaims() throws Throwable {
         rr.then(r -> {
