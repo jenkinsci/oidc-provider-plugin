@@ -117,6 +117,50 @@ You can add claims to all id tokens, those used during builds,
 or those used outside of builds (for example by other Jenkins plugins accepting string credentials).
 All applicable kinds of claim templates will be merged.
 
+Claim templates are required by default: if a value still contains `${` after variable substitution,
+token creation fails. Select **Optional** to omit that claim instead when a variable is unavailable.
+For example, `CHANGE_ID` is only set for pull request builds, so an optional `change_id` claim
+can be configured alongside claims used by all builds. Resolved optional claims are included
+and converted to their configured value type as usual.
+The `sub` claim is always required, even if it is marked optional.
+
+With Jenkins Configuration as Code, use `optional: true` for these templates.
+Prefix variable expressions with `^` so JCasC leaves them for the plugin to expand from the build environment:
+
+```yaml
+security:
+  idToken:
+    buildClaimTemplates:
+    - name: sub
+      format: ^${JOB_URL}
+      type: string
+      optional: false
+    - name: build_number
+      format: ^${BUILD_NUMBER}
+      type: integer
+      optional: false
+    - name: branch
+      format: ^${BRANCH_NAME}
+      type: string
+      optional: true
+    - name: change_id
+      format: ^${CHANGE_ID}
+      type: string
+      optional: true
+    - name: change_branch
+      format: ^${CHANGE_BRANCH}
+      type: string
+      optional: true
+    - name: change_target
+      format: ^${CHANGE_TARGET}
+      type: string
+      optional: true
+    - name: tag
+      format: ^${TAG_NAME}
+      type: string
+      optional: true
+```
+
 ## Examples
 
 Some tested usage examples follow. Please contribute others!

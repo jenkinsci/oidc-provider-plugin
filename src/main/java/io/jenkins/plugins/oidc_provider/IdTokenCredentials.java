@@ -241,6 +241,10 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                 }
                 var formatted = Util.replaceMacro(t.format, env);
                 if (formatted.contains("${")) {
+                    // The subject must always resolve, even if configured as optional.
+                    if (t.isOptional() && !t.name.equals(Claims.SUBJECT)) {
+                        continue;
+                    }
                     throw new RuntimeException("Apparently unsubstituted claims: " + formatted);
                 }
                 builder.claim(t.name, t.type.parse(formatted));

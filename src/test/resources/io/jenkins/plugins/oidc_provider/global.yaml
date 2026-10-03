@@ -16,3 +16,8 @@ security:
     - name: num
       format: ^${BUILD_NUMBER}
       type: integer
+      optional: false
+    - name: change_id
+      format: ^${CHANGE_ID}
+      type: string
+      optional: true

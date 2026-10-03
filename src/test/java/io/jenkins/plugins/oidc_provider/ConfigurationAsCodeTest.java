@@ -66,7 +66,9 @@ class ConfigurationAsCodeTest {
             ClaimTemplate.xmlForm(cfg.getClaimTemplates()));
         assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType()))),
             ClaimTemplate.xmlForm(cfg.getGlobalClaimTemplates()));
-        assertEquals(ClaimTemplate.xmlForm(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType()))),
+        ClaimTemplate changeId = new ClaimTemplate("change_id", "${CHANGE_ID}", new StringClaimType());
+        changeId.setOptional(true);
+        assertEquals(ClaimTemplate.xmlForm(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType()), changeId)),
             ClaimTemplate.xmlForm(cfg.getBuildClaimTemplates()));
     }
 }
