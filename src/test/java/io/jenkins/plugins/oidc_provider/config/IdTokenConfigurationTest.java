@@ -26,6 +26,7 @@ package io.jenkins.plugins.oidc_provider.config;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -44,13 +45,13 @@ class IdTokenConfigurationTest {
             IdTokenConfiguration cfg = IdTokenConfiguration.get();
             cfg.setClaimTemplates(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType())));
             cfg.setGlobalClaimTemplates(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType())));
-            cfg.setBuildClaimTemplates(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType())));
+            cfg.setBuildClaimTemplates(buildClaimTemplates());
             r.submit(r.createWebClient().goTo("configureSecurity").getFormByName("config"));
             assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("ok", "true", new BooleanClaimType()))),
                 ClaimTemplate.xmlForm(cfg.getClaimTemplates()));
             assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType()))),
                 ClaimTemplate.xmlForm(cfg.getGlobalClaimTemplates()));
-            assertEquals(ClaimTemplate.xmlForm(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType()))),
+            assertEquals(ClaimTemplate.xmlForm(buildClaimTemplates()),
                 ClaimTemplate.xmlForm(cfg.getBuildClaimTemplates()));
         });
         rr.then(r -> {
@@ -59,7 +60,7 @@ class IdTokenConfigurationTest {
                 ClaimTemplate.xmlForm(cfg.getClaimTemplates()));
             assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType()))),
                 ClaimTemplate.xmlForm(cfg.getGlobalClaimTemplates()));
-            assertEquals(ClaimTemplate.xmlForm(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType()))),
+            assertEquals(ClaimTemplate.xmlForm(buildClaimTemplates()),
                 ClaimTemplate.xmlForm(cfg.getBuildClaimTemplates()));
             cfg.setClaimTemplates(Collections.emptyList());
             r.submit(r.createWebClient().goTo("configureSecurity").getFormByName("config"));
@@ -67,8 +68,15 @@ class IdTokenConfigurationTest {
                 ClaimTemplate.xmlForm(cfg.getClaimTemplates()));
             assertEquals(ClaimTemplate.xmlForm(Collections.singletonList(new ClaimTemplate("sub", "jenkins", new StringClaimType()))),
                 ClaimTemplate.xmlForm(cfg.getGlobalClaimTemplates()));
-            assertEquals(ClaimTemplate.xmlForm(Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()), new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType()))),
+            assertEquals(ClaimTemplate.xmlForm(buildClaimTemplates()),
                 ClaimTemplate.xmlForm(cfg.getBuildClaimTemplates()));
         });
+    }
+
+    private static List<ClaimTemplate> buildClaimTemplates() {
+        ClaimTemplate changeId = new ClaimTemplate("change_id", "${CHANGE_ID}", new StringClaimType());
+        changeId.setOptional(true);
+        return Arrays.asList(new ClaimTemplate("sub", "${JOB_NAME}", new StringClaimType()),
+            new ClaimTemplate("num", "${BUILD_NUMBER}", new IntegerClaimType()), changeId);
     }
 }

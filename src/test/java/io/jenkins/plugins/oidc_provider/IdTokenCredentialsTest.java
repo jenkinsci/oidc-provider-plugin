@@ -60,6 +60,7 @@ import static jenkins.test.RunMatchers.logContains;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.hamcrest.MatcherAssert.assertThat;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -213,6 +214,66 @@ class IdTokenCredentialsTest {
             assertEquals("dir/p", claims.getSubject());
             assertEquals(1, claims.get("num", Integer.class).intValue());
             assertTrue(claims.get("ok", Boolean.class));
+        });
+    }
+
+    @Issue("https://github.com/jenkinsci/oidc-provider-plugin/issues/199")
+    @Test
+    void optionalBuildClaims() throws Throwable {
+        rr.then(r -> {
+            var c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            var changeId = new ClaimTemplate("change_id", "${CHANGE_ID}", new StringClaimType());
+            changeId.setOptional(true);
+            var changeNumber = new ClaimTemplate("change_number", "${CHANGE_ID}", new IntegerClaimType());
+            changeNumber.setOptional(true);
+            var changeBranch = new ClaimTemplate("change_branch", "${JOB_NAME}/${CHANGE_BRANCH}", new StringClaimType());
+            changeBranch.setOptional(true);
+            var job = new ClaimTemplate("job", "${JOB_NAME}", new StringClaimType());
+            job.setOptional(true);
+            var number = new ClaimTemplate("number", "${BUILD_NUMBER}", new IntegerClaimType());
+            number.setOptional(true);
+            IdTokenConfiguration.get().setBuildClaimTemplates(List.of(
+                new ClaimTemplate("sub", "${JOB_URL}", new StringClaimType()),
+                new ClaimTemplate("build_number", "${BUILD_NUMBER}", new IntegerClaimType()),
+                changeId, changeNumber, changeBranch, job, number));
+            var p = r.createProject(WorkflowJob.class, "plain-job");
+            p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {env.TOK = TOK}", true));
+            var b = r.buildAndAssertSuccess(p);
+            var token = b.getAction(EnvironmentAction.class).getEnvironment().get("TOK");
+            var claims = Jwts.parser().verifyWith(c.publicKey()).build().parseSignedClaims(token).getPayload();
+            assertEquals(r.jenkins.getRootUrl() + p.getUrl(), claims.getSubject());
+            assertEquals(b.getNumber(), claims.get("build_number", Integer.class));
+            assertFalse(claims.containsKey("change_id"));
+            assertFalse(claims.containsKey("change_number"));
+            assertFalse(claims.containsKey("change_branch"));
+            assertEquals(p.getFullName(), claims.get("job", String.class));
+            assertEquals(b.getNumber(), claims.get("number", Integer.class));
+        });
+    }
+
+    @Test
+    void unresolvedRequiredClaims() throws Throwable {
+        rr.then(r -> {
+            var c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            var p = r.createProject(WorkflowJob.class, "plain-job");
+            p.setDefinition(new CpsFlowDefinition("withCredentials([string(variable: 'TOK', credentialsId: 'test')]) {error('Token must not be issued')}", true));
+            var cfg = IdTokenConfiguration.get();
+            var subject = new ClaimTemplate("sub", "${CHANGE_ID}", new StringClaimType());
+            assertFalse(subject.isOptional());
+            cfg.setBuildClaimTemplates(List.of(subject));
+            r.assertLogContains("Apparently unsubstituted claims: ${CHANGE_ID}", r.buildAndAssertStatus(Result.FAILURE, p));
+
+            // A misconfigured optional flag must never allow an unresolved subject.
+            subject.setOptional(true);
+            cfg.setBuildClaimTemplates(List.of(subject));
+            r.assertLogContains("Apparently unsubstituted claims: ${CHANGE_ID}", r.buildAndAssertStatus(Result.FAILURE, p));
+
+            cfg.setBuildClaimTemplates(List.of(
+                new ClaimTemplate("sub", "${JOB_URL}", new StringClaimType()),
+                new ClaimTemplate("change_id", "${CHANGE_ID}", new StringClaimType())));
+            r.assertLogContains("Apparently unsubstituted claims: ${CHANGE_ID}", r.buildAndAssertStatus(Result.FAILURE, p));
         });
     }
 
