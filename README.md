@@ -67,11 +67,13 @@ In Jenkins, create one of two types of credentials:
 The credentials id is recommended for scripted access in your pipelines, or you may let one be chosen at random.
 You may enter an audience URI at this time (see below) but it is optional.
 
-The credential may be created at the Jenkins root, or in a folder. If you leave the field empty, it will create
-the credential at the root, typically under the URI `https://YOUR_JENKINS_HOST/oidc`
-After saving, click on the **Update** Link to see the generated issuer URI.
+The credential may be created at the Jenkins root, or in a folder. If you leave the `Issuer` URI field empty, 
+the URI `https://YOUR_JENKINS_HOST/oidc` will serve oidc configuration files 
+After saving, you can go to the credential "Update" dialog to see the generated issuer URI.
 If you picked the external issuer option or entered any value in the issuer URI field,
 you will be given instructions on what static files to serve from it and their values.
+
+Each credential will have it's key in `/jwks`, unless you have configured an alternate issuer URL.
 
 To rotate the keypair, simply **Update** and re-**Save** (or otherwise recreate) the credentials.
 
@@ -377,16 +379,22 @@ You need to do the following steps in Artifactory:
 1. Go to the Admin panel and navigate to Security » OIDC Integration.
 2. Click on "New OIDC Integration" and fill in the required fields:
    - Name: A name for your OIDC integration (e.g., "Jenkins").
-   - Priority: A priority value for the integration (lower values have higher priority) (e.g., 1).
+   - Provider Type: Generic OpenID Connect.
+   - Issuer URL: The issuer URI from Jenkins (e.g., `https://jenkins.acme.com/oidc`).
    - Description: A description for your OIDC integration (optional).
+3. Create an identity mapping for the OIDC integration:
+   - Name : A name for the identity mapping (e.g., "global_access").
+   - Priority: A priority value for the integration (lower values have higher priority) (e.g., 1).
    - Claims JSON: A JSON object that defines the claims to be included in the id token. For example:
-   ```json
-   {
-     "sub": "https://jenkins.acme.com/job/my-job/**"
-   }
-   ```
-   (this example allows any job under `my-job` to authenticate)
-3. Click "Save" to create the OIDC integration.
+     ```json5
+     {
+        "iss": "https://jenkins.acme.com/oidc", // Same as the issuer URL
+        "aud": "https://artifactory.acme.com", // Same as what you've configured in the Jenkins credential (optional)
+        "sub": "https://jenkins.acme.com/job/my-job/**" // any job under `my-job` can use this mapping to authenticate 
+     }
+     ```
+   - Give some access to the identity mapping by adding a group or user in Artifactory.
+4. Click "Save" to create the OIDC integration.
 
 ![Artifactory config](/demo/artifactory/identity_mapping_artifactory.png)
 
@@ -429,6 +437,8 @@ EOF
 }
 ```
 
+When setting up OIDC with Artifactory, make sure to not re-save the credentials, as it will rotate the keys and Artifactory will use cached keys, which will give you "Invalide Signature" errors.
+
 ## References
 
 Some relevant background reading. Not intended to be exhaustive.
@@ -449,6 +459,10 @@ Some relevant background reading. Not intended to be exhaustive.
 * [Introductory video](https://youtu.be/4vajaXzHN08)
 * [Workload identity federation](https://cloud.google.com/iam/docs/workload-identity-federation) (introduction)
 * [Access resources from an OIDC identity provider](https://cloud.google.com/iam/docs/configuring-workload-identity-federation#oidc) (detailed guide)
+
+### Artifactory 
+
+* [ARTIFACTORY: Under the Hood: Debugging the OIDC Token Exchange Flow](https://jfrog.com/help/r/artifactory-under-the-hood-debugging-the-oidc-token-exchange-flow/artifactory-under-the-hood-debugging-the-oidc-token-exchange-flow) 
 
 ### Security considerations
 
