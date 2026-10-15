@@ -69,6 +69,7 @@ You may enter an audience URI at this time (see below) but it is optional.
 
 The credential may be created at the Jenkins root, or in a folder. If you leave the `Issuer` URI field empty, 
 the URI `https://YOUR_JENKINS_HOST/oidc` will serve oidc configuration files 
+
 After saving, you can go to the credential "Update" dialog to see the generated issuer URI.
 If you picked the external issuer option or entered any value in the issuer URI field,
 you will be given instructions on what static files to serve from it and their values.
@@ -393,7 +394,7 @@ You need to do the following steps in Artifactory:
         "sub": "https://jenkins.acme.com/job/my-job/**" // any job under `my-job` can use this mapping to authenticate 
      }
      ```
-   - Give some access to the identity mapping by adding a group or user in Artifactory.
+   - Give access to the identity mapping by adding a group or user in Artifactory.
 4. Click "Save" to create the OIDC integration.
 
 ![Artifactory config](/demo/artifactory/identity_mapping_artifactory.png)
