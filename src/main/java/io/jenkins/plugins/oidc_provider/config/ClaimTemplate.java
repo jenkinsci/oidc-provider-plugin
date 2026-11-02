@@ -37,6 +37,7 @@ import jenkins.model.Jenkins;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
 public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> {
@@ -45,10 +46,20 @@ public final class ClaimTemplate extends AbstractDescribableImpl<ClaimTemplate> 
     public final @NonNull String format;
     public final @NonNull ClaimType type;
 
+    private boolean optional;
+
     @DataBoundConstructor public ClaimTemplate(String name, String format, ClaimType type) {
         this.name = name;
         this.format = format;
         this.type = type;
+    }
+
+    public boolean isOptional() {
+        return optional;
+    }
+
+    @DataBoundSetter public void setOptional(boolean optional) {
+        this.optional = optional;
     }
 
     @Restricted(NoExternalUse.class)

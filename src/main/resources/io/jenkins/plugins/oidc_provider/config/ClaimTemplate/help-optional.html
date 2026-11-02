@@ -1,0 +1,9 @@
+<p>
+    Omit this claim if its value still contains <code>${</code> after variable substitution,
+    instead of failing token creation. This is useful for variables such as <code>CHANGE_ID</code>
+    that are only available in some builds. Resolved values are still parsed using the selected value type.
+</p>
+<p>
+    Claims are required by default. The <code>sub</code> (subject) claim is always required,
+    even if this option is selected.
+</p>
