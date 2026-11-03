@@ -25,7 +25,9 @@
 package io.jenkins.plugins.oidc_provider;
 
 import com.cloudbees.plugins.credentials.Credentials;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.CredentialsStoreAction;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
@@ -38,9 +40,13 @@ import hudson.model.AbstractBuild;
 import hudson.model.Computer;
 import hudson.model.EnvironmentContributingAction;
 import hudson.model.EnvironmentContributor;
+import hudson.model.Item;
+import hudson.model.ItemGroup;
 import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.security.ACL;
+import hudson.security.ACLContext;
 import hudson.util.FormValidation;
 import hudson.util.LogTaskListener;
 import hudson.util.Secret;
@@ -71,6 +77,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -85,6 +92,7 @@ import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.Stapler;
 import org.kohsuke.stapler.StaplerRequest2;
+import org.kohsuke.stapler.interceptor.RequirePOST;
 
 public abstract class IdTokenCredentials extends BaseStandardCredentials {
 
@@ -111,7 +119,57 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
     private transient @CheckForNull Run<?, ?> build;
 
     protected IdTokenCredentials(CredentialsScope scope, String id, String description) {
-        this(scope, id, description, generatePrivateKey());
+        this(scope, id, description, retainedKeyPair(id).orElseGet(IdTokenCredentials::generatePrivateKey));
+    }
+
+    /**
+     * Looks up an already saved credentials item with the same ID, so that its keypair can be retained.
+     * <p>Reconfiguring a credentials item - from the UI, or by applying a JCasC document - constructs a
+     * new object through {@link org.kohsuke.stapler.DataBoundConstructor}. Without this lookup the keypair
+     * would silently be replaced, while {@code kid} (the credentials ID) stays the same, so relying parties
+     * that cached the JWKS cannot notice and keep rejecting freshly issued tokens.
+     * @param id the ID of the credentials item being reconfigured
+     * @return the keypair currently in use for that ID, or empty when there is none
+     */
+    private static Optional<KeyPair> retainedKeyPair(String id) {
+        if (Util.fixEmpty(id) == null) {
+            return Optional.empty();
+        }
+        Jenkins j = Jenkins.getInstanceOrNull();
+        if (j == null) {
+            return Optional.empty();
+        }
+        try (ACLContext ignored = ACL.as2(ACL.SYSTEM2)) {
+            Optional<KeyPair> fromRoot = findKeyPair(CredentialsProvider.lookupStores(j), id);
+            if (fromRoot.isPresent()) {
+                return fromRoot;
+            }
+            // stores attached to folders are not reachable from the root; only scanned when the
+            // cheap lookup above found nothing, which is also the case when creating a new item
+            for (Item item : j.getAllItems()) {
+                if (item instanceof ItemGroup) {
+                    Optional<KeyPair> fromItem = findKeyPair(CredentialsProvider.lookupStores(item), id);
+                    if (fromItem.isPresent()) {
+                        return fromItem;
+                    }
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<KeyPair> findKeyPair(Iterable<CredentialsStore> stores, String id) {
+        for (CredentialsStore store : stores) {
+            for (Domain domain : store.getDomains()) {
+                for (Credentials c : store.getCredentials(domain)) {
+                    if (c instanceof IdTokenCredentials && id.equals(((IdTokenCredentials) c).getId())) {
+                        LOGGER.fine(() -> "retaining the existing keypair of " + id);
+                        return Optional.of(((IdTokenCredentials) c).kp);
+                    }
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     private static KeyPair generatePrivateKey() {
@@ -164,6 +222,17 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
     }
 
     protected abstract IdTokenCredentials clone(KeyPair kp, Secret privateKey);
+
+    /**
+     * @return a copy of this credentials item using a freshly generated keypair
+     */
+    private IdTokenCredentials withNewKeyPair() {
+        KeyPair newKp = generatePrivateKey();
+        IdTokenCredentials copy = clone(newKp, serializePrivateKey(newKp));
+        copy.issuer = issuer;
+        copy.audience = audience;
+        return copy;
+    }
 
     @Override public final Credentials forRun(Run<?, ?> context) {
         IdTokenCredentials clone = clone(kp, privateKey);
@@ -386,6 +455,50 @@ public abstract class IdTokenCredentials extends BaseStandardCredentials {
                 throw HttpResponses.notFound();
             }
             return JSONObject.fromObject(Jwks.set().add(Keys.jwk(c)).build());
+        }
+
+        /**
+         * Replaces the keypair of a credentials item on explicit request.
+         * Reconfiguring an item keeps its keypair, so this is the only way to roll one over.
+         * Every relying party must be updated with the new public key afterwards.
+         */
+        @RequirePOST
+        public FormValidation doRotateKeypair(@QueryParameter String id) throws IOException {
+            if (Util.fixEmpty(id) == null) {
+                return FormValidation.error("No credentials ID given.");
+            }
+            for (CredentialsStore store : allStores()) {
+                for (Domain domain : store.getDomains()) {
+                    for (Credentials c : store.getCredentials(domain)) {
+                        if (c instanceof IdTokenCredentials && id.equals(((IdTokenCredentials) c).getId())) {
+                            store.checkPermission(CredentialsProvider.UPDATE);
+                            IdTokenCredentials cred = (IdTokenCredentials) c;
+                            if (!store.updateCredentials(domain, cred, cred.withNewKeyPair())) {
+                                return FormValidation.error("Could not update credentials " + id + ".");
+                            }
+                            LOGGER.info(() -> "rotated the keypair of " + id);
+                            return FormValidation.ok("Rotated the keypair. Relying parties must be updated with the new public key.");
+                        }
+                    }
+                }
+            }
+            return FormValidation.error("No OpenID Connect credentials with ID " + id + " found.");
+        }
+
+        private static List<CredentialsStore> allStores() {
+            Jenkins j = Jenkins.get();
+            List<CredentialsStore> stores = new ArrayList<>();
+            CredentialsProvider.lookupStores(j).forEach(stores::add);
+            for (Item item : j.getAllItems()) {
+                if (item instanceof ItemGroup) {
+                    for (CredentialsStore store : CredentialsProvider.lookupStores(item)) {
+                        if (stores.stream().noneMatch(s -> s == store)) {
+                            stores.add(store);
+                        }
+                    }
+                }
+            }
+            return stores;
         }
 
     }

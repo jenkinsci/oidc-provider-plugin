@@ -30,6 +30,7 @@ import io.jenkins.plugins.oidc_provider.config.ClaimTemplate;
 import com.cloudbees.hudson.plugins.folder.Folder;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import hudson.EnvVars;
 import hudson.model.EnvironmentContributor;
@@ -39,8 +40,13 @@ import org.htmlunit.html.HtmlElement;
 import org.htmlunit.html.HtmlForm;
 import org.htmlunit.html.HtmlPage;
 import hudson.model.Result;
+import hudson.util.FormValidation;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.model.User;
+import hudson.security.ACL;
+import org.springframework.security.access.AccessDeniedException;
+import hudson.security.ACLContext;
 import io.jenkins.plugins.oidc_provider.config.BooleanClaimType;
 import io.jenkins.plugins.oidc_provider.config.IntegerClaimType;
 import io.jenkins.plugins.oidc_provider.config.StringClaimType;
@@ -61,6 +67,7 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -88,6 +95,59 @@ class IdTokenCredentialsTest {
     private final JenkinsSessionExtension rr = new JenkinsSessionExtension();
 
     @Test
+    void rotateKeypair() throws Throwable {
+        rr.then(r -> {
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            BigInteger before = c.publicKey().getModulus();
+            IdTokenStringCredentials.DescriptorImpl d = r.jenkins.getDescriptorByType(IdTokenStringCredentials.DescriptorImpl.class);
+            assertThat(d.doRotateKeypair("test").kind, is(FormValidation.Kind.OK));
+            List<IdTokenStringCredentials> creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
+            assertThat(creds, hasSize(1));
+            assertThat("keypair replaced on explicit request", creds.get(0).publicKey().getModulus(), is(not(before)));
+            assertThat(d.doRotateKeypair("nonexistent").kind, is(FormValidation.Kind.ERROR));
+        });
+    }
+
+    @Test
+    void keypairRetainedForFolderCredentials() throws Throwable {
+        rr.then(r -> {
+            Folder dir = r.jenkins.createProject(Folder.class, "dir");
+            CredentialsStore store = CredentialsProvider.lookupStores(dir).iterator().next();
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "folder-cred", null);
+            store.addCredentials(Domain.global(), c);
+            BigInteger before = c.publicKey().getModulus();
+            // reconfiguring constructs a new object with the same ID
+            IdTokenStringCredentials again = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "folder-cred", "updated");
+            assertThat("keypair retained for credentials outside the root stores", again.publicKey().getModulus(), is(before));
+            IdTokenStringCredentials.DescriptorImpl d = r.jenkins.getDescriptorByType(IdTokenStringCredentials.DescriptorImpl.class);
+            assertThat(d.doRotateKeypair("folder-cred").kind, is(FormValidation.Kind.OK));
+            IdTokenStringCredentials rotated = (IdTokenStringCredentials) store.getCredentials(Domain.global()).get(0);
+            assertThat("rotation reaches credentials outside the root stores", rotated.publicKey().getModulus(), is(not(before)));
+        });
+    }
+
+    @Test
+    void rotateKeypairRequiresPermission() throws Throwable {
+        rr.then(r -> {
+            IdTokenStringCredentials c = new IdTokenStringCredentials(CredentialsScope.GLOBAL, "test", null);
+            CredentialsProvider.lookupStores(r.jenkins).iterator().next().addCredentials(Domain.global(), c);
+            BigInteger before = c.publicKey().getModulus();
+            r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
+            // the store is visible to this user, so the permission check has to be what stops the rotation
+            r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy()
+                .grant(Jenkins.READ, CredentialsProvider.VIEW).everywhere().to("dev"));
+            IdTokenStringCredentials.DescriptorImpl d = r.jenkins.getDescriptorByType(IdTokenStringCredentials.DescriptorImpl.class);
+            try (ACLContext ignored = ACL.as2(User.getById("dev", true).impersonate2())) {
+                assertThrows(AccessDeniedException.class, () -> d.doRotateKeypair("test"),
+                    "a user without Credentials/Update must not be able to rotate a keypair");
+            }
+            List<IdTokenStringCredentials> creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
+            assertThat("keypair untouched", creds.get(0).publicKey().getModulus(), is(before));
+        });
+    }
+
+    @Test
     void persistence() throws Throwable {
         AtomicReference<BigInteger> modulus = new AtomicReference<>();
         rr.then(r -> {
@@ -110,7 +170,7 @@ class IdTokenCredentialsTest {
             creds = CredentialsProvider.lookupCredentialsInItemGroup(IdTokenStringCredentials.class, r.jenkins, null, Collections.emptyList());
             assertThat(creds, hasSize(1));
             assertThat(creds.get(0).getDescription(), is("my creds"));
-            assertThat("private key rotated by resaving", creds.get(0).publicKey().getModulus(), is(not(modulus.get())));
+            assertThat("private key retained by resaving", creds.get(0).publicKey().getModulus(), is(modulus.get()));
             creds.get(0).setIssuer(null);
             creds.get(0).setAudience(null);
             r.submit(getUpdateForm(r, creds.get(0)));
